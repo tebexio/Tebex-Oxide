@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -92,6 +93,18 @@ namespace Oxide.Plugins
             return players.FindPlayerById(id);
         }
 
+        public bool isPlayerOnline(IPlayer player)
+        {
+            Puts("IsPlayerOnline" + player.GetType().ToString());
+            if (player.GetType().ToString() == "Oxide.Game.SevenDays.Libraries.Covalence.SevenDaysPlayer")
+            {
+                Puts("Check for online player");
+                return players.Connected.Count(p => p.Id == player.Id) > 0;
+            }
+
+            return player.IsConnected;
+        }
+
         public void runCommand(string cmd)
         {
             server.Command(cmd);
@@ -100,22 +113,47 @@ namespace Oxide.Plugins
         [Command("tebex:info")]
         void cmdInfo(IPlayer player, String cmd, String[] args)
         {
-            CommandTebexInfo cmdCommandTebexInfo = new CommandTebexInfo();
-            cmdCommandTebexInfo.Execute(player, cmd, args);
+            if (player == null || player.IsAdmin)
+            {
+                CommandTebexInfo cmdCommandTebexInfo = new CommandTebexInfo();
+                cmdCommandTebexInfo.Execute(player, cmd, args);
+            }
         }
         
         [Command("tebex:secret")]
         void cmdSecret(IPlayer player, String cmd, String[] args)
         {
-            CommandTebexSecret cmdCommandTebexSecret = new CommandTebexSecret();
-            cmdCommandTebexSecret.Execute(player, cmd, args);
+            if (player.IsServer)
+            {
+                CommandTebexSecret cmdCommandTebexSecret = new CommandTebexSecret();
+                cmdCommandTebexSecret.Execute(player, cmd, args);
+            }
         }
+        
+        [ConsoleCommand("tebex:secret")]
+        void cmdSecretConsole(IPlayer player, String cmd, String[] args)
+        {
+            if (player.IsServer)
+            {
+                CommandTebexSecret cmdCommandTebexSecret = new CommandTebexSecret();
+                cmdCommandTebexSecret.Execute(player, cmd, args);
+            }
+        }        
 
         [Command("tebex:forcecheck")]
         void cmdForcecheck(IPlayer player, String cmd, String[] args)
         {
-            CommandTebexForcecheck cmdCommandTebexForcecheck = new CommandTebexForcecheck();
-            cmdCommandTebexForcecheck.Execute(player, cmd, args);
+            if (player == null || player.IsAdmin)
+            {
+                CommandTebexForcecheck cmdCommandTebexForcecheck = new CommandTebexForcecheck();
+                cmdCommandTebexForcecheck.Execute(player, cmd, args);
+            }
+        }
+
+        [Command("buy")]
+        void cmdBuy(IPlayer player, String cmd, String[] args)
+        {
+            player.Message("To buy packages from our webstore, please visit: " + Instance.information.domain);
         }
         
     }
@@ -192,8 +230,7 @@ namespace TebexOxide.Commands
     }
     
     public class CommandTebexInfo : ITebexCommand
-    {
-
+    {      
         public void Execute(IPlayer player, String cmd, String[] args)
         {           
             // Set a custom timeout (in milliseconds)
@@ -297,10 +334,10 @@ namespace TebexOxide.Commands
             {
                 try
                 {
-                    
-                    IPlayer targetPlayer = Oxide.Plugins.TebexOxide.Instance.getPlayerById((string) player["uuid"]);
+                    IPlayer targetPlayer = Oxide.Plugins.TebexOxide.Instance.getPlayerById((string) player["uuid"]);                    
+                    Oxide.Plugins.TebexOxide.Instance.logWarning(targetPlayer.ToString());
 
-                    if (targetPlayer != null && targetPlayer.IsConnected)
+                    if (targetPlayer != null && Oxide.Plugins.TebexOxide.Instance.isPlayerOnline(targetPlayer))
                     {
                         Oxide.Plugins.TebexOxide.Instance.logWarning("Execute commands for " + targetPlayer.Name + "(ID: "+targetPlayer.Id+")");
                         TebexCommandRunner.doOnlineCommands((int) player["id"], (string) targetPlayer.Name, targetPlayer.Id);
@@ -346,7 +383,6 @@ namespace TebexOxide.Commands
                 
                 foreach (var command in commands.Children())
                 {
-
                     String commandToRun = buildCommand((string) command["command"], (string) command["player"]["name"],
                         (string) command["player"]["uuid"]);
                     
