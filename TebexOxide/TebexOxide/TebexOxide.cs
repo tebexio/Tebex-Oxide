@@ -193,7 +193,7 @@ namespace TebexOxide.Commands
             {
                 if (response == null || code != 200)
                 {
-                    HandleError(new Exception("Error: code" + code));
+                    HandleError(new Exception("Error: code" + code.ToString()));
                     webrequest.Shutdown();
                     return;
                 }
