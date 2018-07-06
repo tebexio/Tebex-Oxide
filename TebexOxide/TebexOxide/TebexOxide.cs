@@ -187,17 +187,13 @@ namespace TebexOxide.Commands
 
             // Set some custom request headers (eg. for HTTP Basic Auth)
             var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexOxide.Instance.Config["secret"] } };
-
-            Oxide.Plugins.TebexOxide.Instance.logWarning((string) Oxide.Plugins.TebexOxide.Instance.Config["baseUrl"] + "information");
-            Oxide.Plugins.TebexOxide.Instance.logWarning((string) Oxide.Plugins.TebexOxide.Instance.Config["secret"]);
-            
-            
+                        
             WebRequests webrequest = new WebRequests();
             webrequest.EnqueueGet((string) Oxide.Plugins.TebexOxide.Instance.Config["baseUrl"] + "information", (code, response) =>
             {
                 if (response == null || code != 200)
                 {
-                    HandleError(new Exception("Error"));
+                    HandleError(new Exception("Error: code" + code));
                     webrequest.Shutdown();
                     return;
                 }
@@ -225,6 +221,7 @@ namespace TebexOxide.Commands
 
         public void HandleError(Exception e)
         {
+            Oxide.Plugins.TebexOxide.Instance.logWarning(e.Message);
             Oxide.Plugins.TebexOxide.Instance.logWarning("We were unable to validate your secret key.");
         }      
     }
