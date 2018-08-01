@@ -186,14 +186,12 @@ namespace TebexDonate.Commands
 
             // Set some custom request headers (eg. for HTTP Basic Auth)
             var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
-            
-            
             WebRequests webrequest = new WebRequests();
             webrequest.EnqueueGet((string) Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "information", (code, response) =>
             {
                 if (response == null || code != 200)
                 {
-                    HandleError(new Exception("Error"));
+                    HandleError(new Exception("Error: code" + code.ToString()));
                     webrequest.Shutdown();
                     return;
                 }
