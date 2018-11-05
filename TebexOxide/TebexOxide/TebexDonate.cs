@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using Newtonsoft.Json.Linq;
 using Oxide.Core;
 using Oxide.Core.Libraries;
 using Oxide.Core.Libraries.Covalence;
-using Oxide.Core.Plugins;
 using TebexDonate.Commands;
 using TebexDonate.Models;
 using TebexDonate.PushCommands;
@@ -25,7 +22,7 @@ namespace Oxide.Plugins
 
         public int nextCheck = 15 * 60;
         public WebstoreInfo information;
-        private DateTime lastCalled = DateTime.Now.AddMinutes(-14);
+        private DateTime _lastCalled = DateTime.Now.AddMinutes(-14);
 
         public static TebexDonate Instance;
 
@@ -41,7 +38,7 @@ namespace Oxide.Plugins
             if (Config["baseUrl"] == null) Config["baseUrl"] = baseUrl;
             if (Config["buyEnabled"] == null) Config["buyEnabled"] = true;
             if (Config["pushCommands"] == null) Config["pushCommands"] = true;
-            if (Config["pushCommandsPort"] == null) Config["pushCommandPort"] = '3000';
+            if (Config["pushCommandsPort"] == null) Config["pushCommandPort"] = "3000";
             
             SaveConfig();            
         }     
@@ -88,9 +85,9 @@ namespace Oxide.Plugins
         
         private void checkQueue()
         {
-            if ((DateTime.Now - this.lastCalled).TotalSeconds > Instance.nextCheck)
+            if ((DateTime.Now - this._lastCalled).TotalSeconds > Instance.nextCheck)
             {
-                this.lastCalled = DateTime.Now;
+                this._lastCalled = DateTime.Now;
                 //Do Command Check             
                 cmdForcecheck(null, "tebex:forcecheck", null);
             }
