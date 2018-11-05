@@ -40,6 +40,8 @@ namespace Oxide.Plugins
             if (Config["secret"] == null) Config["secret"] = secret;
             if (Config["baseUrl"] == null) Config["baseUrl"] = baseUrl;
             if (Config["buyEnabled"] == null) Config["buyEnabled"] = true;
+            if (Config["pushCommands"] == null) Config["pushCommands"] = true;
+            if (Config["pushCommandsPort"] == null) Config["pushCommandPort"] = '3000';
             
             SaveConfig();            
         }     
@@ -70,9 +72,12 @@ namespace Oxide.Plugins
             {
                 ["WebstoreUrl"] = "To buy packages from our webstore, please visit {webstoreUrl}.",
             }, this);
-            
-            var server = new HttpAsyncServer(new string[] { "http://localhost:3000/" });
-            server.RunServer();            
+
+            if ((bool)Config["pushCommands"])
+            {
+                var server = new HttpAsyncServer(new string[] {"http://localhost:" + (string) Config["pushCommandsPort"] + "/"});
+                server.RunServer();
+            }
 
         }
 
@@ -531,7 +536,7 @@ namespace TebexDonate.PushCommands
 
         public HttpAsyncServer(string[] listenedAddresses)
         {
-            Interface.Oxide.LogError("Starting push server...");
+            Interface.Oxide.LogError("Starting push server on " + listenedAddresses + "...");
             this.listenedAddresses = listenedAddresses;
             isWorked = false;
         }
