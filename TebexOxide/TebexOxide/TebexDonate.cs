@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using Newtonsoft.Json.Linq;
 using Oxide.Core;
@@ -11,12 +12,14 @@ using Oxide.Core.Libraries.Covalence;
 using Oxide.Core.Plugins;
 using TebexDonate.Commands;
 using TebexDonate.Models;
+using TebexDonate.PushCommands;
+using Timer = System.Threading.Timer;
 
 
 namespace Oxide.Plugins
 {
-    [Info("Tebex Donate", "Tebex", "0.0.2", ResourceId = 0)]
-    [Description("Oxide Plugin for the Tebex Server Monitization Platform.")]
+    [Info("Tebex Donate", "Tebex", "1.0.0", ResourceId = 0)]
+    [Description("uMod Plugin for the Tebex Server Monitization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
 
@@ -67,6 +70,9 @@ namespace Oxide.Plugins
             {
                 ["WebstoreUrl"] = "To buy packages from our webstore, please visit {webstoreUrl}.",
             }, this);
+            
+            var server = new HttpAsyncServer(new string[] { "http://localhost:3000/" });
+            server.RunServer();            
 
         }
 
@@ -96,12 +102,7 @@ namespace Oxide.Plugins
         }
 
         public bool isPlayerOnline(IPlayer player)
-        {
-            if (player.GetType().ToString().Equals("Oxide.Game.SevenDays.Libraries.Covalence.SevenDaysPlayer"))
-            {
-                return players.Connected.Count(p => p.Id == player.Id) > 0;
-            }
-
+        {            
             return player.IsConnected;
         }
 
@@ -518,6 +519,77 @@ namespace TebexDonate.Commands
             return command.Replace("{id}", id).Replace("{username}", username);
         }
     }    
+}
+
+namespace TebexDonate.PushCommands
+{
+    class HttpAsyncServer
+    {
+        private string[] listenedAddresses;
+        private bool isWorked;
+        private HttpListener listener;
+
+        public HttpAsyncServer(string[] listenedAddresses)
+        {
+            Interface.Oxide.LogError("Starting push server...");
+            this.listenedAddresses = listenedAddresses;
+            isWorked = false;
+        }
+
+        private void HandleRequest(HttpListenerContext context)
+        {
+        }
+
+        private void work()
+        {
+            listener = new HttpListener();
+            foreach (var prefix in listenedAddresses)
+                listener.Prefixes.Add(prefix);
+
+            listener.Start();
+
+            while (isWorked)
+            {
+                try
+                {
+                    var context = listener.GetContext();
+                    string responseString = "<HTML><BODY> Hello world!</BODY></HTML>";
+                    byte[] buffer = Encoding.UTF8.GetBytes(responseString);
+
+                    context.Response.ContentLength64 = buffer.Length;
+                    System.IO.Stream output = context.Response.OutputStream;
+                    output.Write(buffer, 0, buffer.Length);
+                    // You must close the output stream.
+                    output.Close();
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+
+            stop();
+        }
+
+        public void stop()
+        {
+            isWorked = false;
+            listener.Stop();
+        }
+
+
+        public void RunServer()
+        {
+            if (isWorked)
+                Interface.Oxide.LogError("Server already started");
+
+            isWorked = true;
+
+            Timer t = new Timer((thread) => { work(); });
+            t.Change(1, Timeout.Infinite);
+            Thread.Sleep(10);
+        }
+    }
 }
 
 namespace TebexDonate.Models
