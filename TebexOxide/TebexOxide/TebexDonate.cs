@@ -16,7 +16,7 @@ using TebexDonate.Models;
 namespace Oxide.Plugins
 {
     [Info("Tebex Donate", "Tebex", "0.0.2", ResourceId = 0)]
-    [Description("Oxide Plugin for the Tebex Server Monitization Platform.")]
+    [Description("uMod Plugin for the Tebex Server Monitization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
 
