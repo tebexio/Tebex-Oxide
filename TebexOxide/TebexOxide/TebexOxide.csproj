@@ -48,14 +48,26 @@
     <Reference Include="Oxide.Core, Version=2.0.3795.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\packages\Oxide.Core.2.0.3795\lib\net461\Oxide.Core.dll</HintPath>
     </Reference>
+    <Reference Include="Oxide.Core, Version=2.0.3867.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>C:\steamcmd\servers\rust\RustDedicated_Data\Managed\Oxide.Core.dll</HintPath>
+    </Reference>
     <Reference Include="Oxide.CSharp, Version=2.0.3815.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\packages\Oxide.CSharp.2.0.3815\lib\net461\Oxide.CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Oxide.CSharp, Version=2.0.4000.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>C:\steamcmd\servers\rust\RustDedicated_Data\Managed\Oxide.CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Oxide.References, Version=2.0.3751.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\packages\Oxide.References.2.0.3751\lib\net461\Oxide.References.dll</HintPath>
     </Reference>
+    <Reference Include="Oxide.References, Version=2.0.3765.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>C:\steamcmd\servers\rust\RustDedicated_Data\Managed\Oxide.References.dll</HintPath>
+    </Reference>
     <Reference Include="Oxide.Unity, Version=2.0.3751.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\packages\Oxide.Unity.2.0.3751\lib\net35\Oxide.Unity.dll</HintPath>
+    </Reference>
+    <Reference Include="Oxide.Unity, Version=2.0.3756.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>C:\steamcmd\servers\rust\RustDedicated_Data\Managed\Oxide.Unity.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

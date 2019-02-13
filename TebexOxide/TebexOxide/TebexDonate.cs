@@ -7,16 +7,15 @@ using Newtonsoft.Json.Linq;
 using Oxide.Core;
 using Oxide.Core.Libraries;
 using Oxide.Core.Libraries.Covalence;
-using TebexDonate.Commands;
-using TebexDonate.Models;
-using TebexDonate.PushCommands;
-using Timer = System.Threading.Timer;
+using Oxide.Plugins.TebexDonateUtils.Commands;
+using Oxide.Plugins.TebexDonateUtils.Models;
 
 
 namespace Oxide.Plugins
+
 {
-    [Info("Tebex Donate", "Tebex", "1.0.0", ResourceId = 0)]
-    [Description("uMod Plugin for the Tebex Server Monitization Platform.")]
+    [Info("Tebex Donate", "Tebex", "1.0.0")]
+    [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
 
@@ -27,6 +26,7 @@ namespace Oxide.Plugins
         public static TebexDonate Instance;
 
         public static Timer timerRef;
+
         
         private String secret = "";
         private String baseUrl = "https://plugin.buycraft.net/";
@@ -40,14 +40,14 @@ namespace Oxide.Plugins
             if (Config["pushCommands"] == null) Config["pushCommands"] = true;
             if (Config["pushCommandsPort"] == null) Config["pushCommandPort"] = "3000";
             
-            SaveConfig();            
+            //SaveConfig();            
         }     
         
         void OnServerInitialized()
         {
             this.information = new WebstoreInfo();
             Instance = this;
-            if ((string) Instance.Config["secret"] == "")
+            if (string.IsNullOrEmpty((string) Instance.Config["secret"]))
             {
                 Puts("You have not yet defined your secret key. Use 'tebex:secret <secret>' to define your key");
             }
@@ -63,19 +63,12 @@ namespace Oxide.Plugins
             
         }
 
-        private void Loaded()
+        protected override void LoadDefaultMessages()
         {
         lang.RegisterMessages(new Dictionary<string, string>
             {
                 ["WebstoreUrl"] = "To buy packages from our webstore, please visit {webstoreUrl}.",
             }, this);
-
-            if ((bool)Config["pushCommands"])
-            {
-                var server = new HttpAsyncServer(new string[] {"http://localhost:" + (string) Config["pushCommandsPort"] + "/"});
-                server.RunServer();
-            }
-
         }
 
         private void Unload()
@@ -131,17 +124,7 @@ namespace Oxide.Plugins
                 CommandTebexSecret cmdCommandTebexSecret = new CommandTebexSecret();
                 cmdCommandTebexSecret.Execute(player, cmd, args);
             }
-        }
-        
-        [ConsoleCommand("tebex:secret")]
-        void cmdSecretConsole(IPlayer player, String cmd, String[] args)
-        {
-            if (player.IsServer)
-            {
-                CommandTebexSecret cmdCommandTebexSecret = new CommandTebexSecret();
-                cmdCommandTebexSecret.Execute(player, cmd, args);
-            }
-        }        
+        }            
 
         [Command("tebex:forcecheck")]
         void cmdForcecheck(IPlayer player, String cmd, String[] args)
@@ -162,7 +145,7 @@ namespace Oxide.Plugins
     }
 }
 
-namespace TebexDonate.Commands
+namespace Oxide.Plugins.TebexDonateUtils.Commands
 {
     
     public interface ITebexCommand
@@ -191,7 +174,7 @@ namespace TebexDonate.Commands
             // Set some custom request headers (eg. for HTTP Basic Auth)
             var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
             WebRequests webrequest = new WebRequests();
-            webrequest.EnqueueGet((string) Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "information", (code, response) =>
+            webrequest.Enqueue((string) Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "information",null, (code, response) =>
             {
                 if (response == null || code != 200)
                 {
@@ -203,7 +186,7 @@ namespace TebexDonate.Commands
                 HandleResponse(JObject.Parse(response));
                 webrequest.Shutdown();
                 
-            }, Oxide.Plugins.TebexDonate.Instance, headers, timeout);
+            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.GET, headers, timeout);
 
         }
 
@@ -238,7 +221,7 @@ namespace TebexDonate.Commands
             var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
 
             WebRequests webrequest = new WebRequests();
-            webrequest.EnqueueGet((string) Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "information", (code, response) =>
+            webrequest.Enqueue((string) Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "information", null, (code, response) =>
             {
                 if (response == null || code != 200)
                 {
@@ -250,7 +233,7 @@ namespace TebexDonate.Commands
                 HandleResponse(JObject.Parse(response));
                 webrequest.Shutdown();
                 
-            }, Oxide.Plugins.TebexDonate.Instance, headers, timeout);
+            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.GET, headers, timeout);
 
         }
 
@@ -291,7 +274,7 @@ namespace TebexDonate.Commands
             var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
 
             WebRequests webrequest = new WebRequests();
-            webrequest.EnqueueGet((string) Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "queue", (code, response) =>
+            webrequest.Enqueue((string) Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "queue", null, (code, response) =>
             {
                 if (response == null || code != 200)
                 {
@@ -303,7 +286,7 @@ namespace TebexDonate.Commands
                 HandleResponse(JObject.Parse(response));
                 webrequest.Shutdown();
                 
-            }, Oxide.Plugins.TebexDonate.Instance, headers, timeout);
+            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.GET, headers, timeout);
 
         }
 
@@ -370,7 +353,7 @@ namespace TebexDonate.Commands
             var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
 
             WebRequests webrequest = new WebRequests();
-            webrequest.EnqueueGet(url, (code, response) =>
+            webrequest.Enqueue(url, null, (code, response) =>
             {
                 JObject json = JObject.Parse(response);
                 JArray commands = (JArray) json["commands"];
@@ -419,7 +402,7 @@ namespace TebexDonate.Commands
                 }
 
                 webrequest.Shutdown();
-            }, Oxide.Plugins.TebexDonate.Instance, headers, timeout);
+            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.GET, headers, timeout);
         }
 
         public static void doOnlineCommands(int playerPluginId, string playerName, string playerId)
@@ -437,7 +420,7 @@ namespace TebexDonate.Commands
             var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
 
             WebRequests webrequest = new WebRequests();
-            webrequest.EnqueueGet(url, (code, response) =>
+            webrequest.Enqueue(url, null, (code, response) =>
             {
                 JObject json = JObject.Parse(response);
                 JArray commands = (JArray) json["commands"];
@@ -486,7 +469,7 @@ namespace TebexDonate.Commands
                 }
 
                 webrequest.Shutdown();
-            }, Oxide.Plugins.TebexDonate.Instance, headers, timeout);
+            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.GET, headers, timeout);
 
         }
 
@@ -523,78 +506,7 @@ namespace TebexDonate.Commands
     }    
 }
 
-namespace TebexDonate.PushCommands
-{
-    class HttpAsyncServer
-    {
-        private string[] listenedAddresses;
-        private bool isWorked;
-        private HttpListener listener;
-
-        public HttpAsyncServer(string[] listenedAddresses)
-        {
-            Interface.Oxide.LogError("Starting push server on " + listenedAddresses + "...");
-            this.listenedAddresses = listenedAddresses;
-            isWorked = false;
-        }
-
-        private void HandleRequest(HttpListenerContext context)
-        {
-        }
-
-        private void work()
-        {
-            listener = new HttpListener();
-            foreach (var prefix in listenedAddresses)
-                listener.Prefixes.Add(prefix);
-
-            listener.Start();
-
-            while (isWorked)
-            {
-                try
-                {
-                    var context = listener.GetContext();
-                    string responseString = "<HTML><BODY> Hello world!</BODY></HTML>";
-                    byte[] buffer = Encoding.UTF8.GetBytes(responseString);
-
-                    context.Response.ContentLength64 = buffer.Length;
-                    System.IO.Stream output = context.Response.OutputStream;
-                    output.Write(buffer, 0, buffer.Length);
-                    // You must close the output stream.
-                    output.Close();
-                }
-                catch (Exception)
-                {
-
-                }
-            }
-
-            stop();
-        }
-
-        public void stop()
-        {
-            isWorked = false;
-            listener.Stop();
-        }
-
-
-        public void RunServer()
-        {
-            if (isWorked)
-                Interface.Oxide.LogError("Server already started");
-
-            isWorked = true;
-
-            Timer t = new Timer((thread) => { work(); });
-            t.Change(1, Timeout.Infinite);
-            Thread.Sleep(10);
-        }
-    }
-}
-
-namespace TebexDonate.Models
+namespace Oxide.Plugins.TebexDonateUtils.Models
 {
     public class WebstoreInfo
     {
