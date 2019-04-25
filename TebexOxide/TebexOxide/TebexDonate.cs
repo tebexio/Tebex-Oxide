@@ -1,522 +1,361 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Net;
-using System.Text;
-using System.Threading;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Oxide.Core;
 using Oxide.Core.Libraries;
 using Oxide.Core.Libraries.Covalence;
-using Oxide.Plugins.TebexDonateUtils.Commands;
-using Oxide.Plugins.TebexDonateUtils.Models;
+using UnityEngine;
+using WebSocketSharp;
 
+// Code re-worked by Hougan 25.04.2019
 
 namespace Oxide.Plugins
-
 {
-    [Info("Tebex Donate", "Tebex", "1.0.0")]
+    [Info("Tebex Donate", "Tebex", "1.1.1")]
     [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
-
-        public int nextCheck = 15 * 60;
-        public WebstoreInfo information;
-        private DateTime _lastCalled = DateTime.Now.AddMinutes(-14);
-
-        public static TebexDonate Instance;
-
-        public static Timer timerRef;
-
+        #region Classes
         
-        private String secret = "";
-        private String baseUrl = "https://plugin.buycraft.net/";
-        private bool buyEnabled = true;
-        protected override void LoadDefaultConfig()
+        private class Configuration
         {
-            Puts("Creating a new configuration file!");
-            if (Config["secret"] == null) Config["secret"] = secret;
-            if (Config["baseUrl"] == null) Config["baseUrl"] = baseUrl;
-            if (Config["buyEnabled"] == null) Config["buyEnabled"] = true;
-            if (Config["pushCommands"] == null) Config["pushCommands"] = true;
-            if (Config["pushCommandsPort"] == null) Config["pushCommandPort"] = "3000";
-            
-            //SaveConfig();            
-        }     
-        
-        void OnServerInitialized()
-        {
-            this.information = new WebstoreInfo();
-            Instance = this;
-            if (string.IsNullOrEmpty((string) Instance.Config["secret"]))
-            {
-                Puts("You have not yet defined your secret key. Use 'tebex:secret <secret>' to define your key");
-            }
-            else
-            {
-                cmdInfo(null, "tebex:info", null);
-            }
+            [JsonProperty("Secret key of your shop (do not tell it anyone)")]
+            public string SecretKey;
+            [JsonProperty("Enable /buy command")]
+            public bool BuyEnabled;
+            [JsonProperty("Debug information")]
+            public bool DebugInformation;
 
-            timerRef = Instance.timer.Every(60, () =>
+            public static Configuration Generate()
             {
-                Instance.checkQueue();
-            });
-            
+                Interface.Oxide.LogWarning($"Creating a new configuration file successful!");
+                return new Configuration
+                {
+                    SecretKey  = null,
+                    BuyEnabled = true,
+                    DebugInformation = true 
+                };
+            }
         }
+        
+        #endregion
 
+        #region Variables
+
+        private static string FinalURL = "UNSET";
+        private static Coroutine MainProcess = null;
+        private static string BaseURL = "https://plugin.buycraft.net/";
+        private static Configuration Settings = Configuration.Generate(); 
+
+        #endregion
+
+        #region Initialization
+
+        protected override void LoadConfig()
+        {
+            base.LoadConfig();
+            try
+            {
+                Settings = Config.ReadObject<Configuration>();
+            }
+            catch
+            {
+                PrintError($"An error occurred reading the configuration file!");
+                PrintError($"Check it with any JSON Validator!");
+                return;
+            }
+            
+            SaveConfig();  
+        } 
+
+        protected override void LoadDefaultConfig() => Settings = Configuration.Generate();
+        protected override void SaveConfig()        => Config.WriteObject(Settings);
         protected override void LoadDefaultMessages()
         {
-        lang.RegisterMessages(new Dictionary<string, string>
+            lang.RegisterMessages(new Dictionary<string, string>
             {
-                ["WebstoreUrl"] = "To buy packages from our webstore, please visit {webstoreUrl}.",
-            }, this);
-        }
-
-        private void Unload()
-        {
-            timerRef.Destroy();
+                ["BUY"] = "You can <color=#194a8c>buy packages</color> from our store!\nPlease visit: {url}"
+            }, this); 
         }
         
-        private void checkQueue()
+        private void OnServerInitialized()
         {
-            if ((DateTime.Now - this._lastCalled).TotalSeconds > Instance.nextCheck)
+            if (Settings.SecretKey.IsNullOrEmpty())
             {
-                this._lastCalled = DateTime.Now;
-                //Do Command Check             
-                cmdForcecheck(null, "tebex:forcecheck", null);
+                PrintError($"You have not yet defined your secret key! Use 'tebex:secret <secret>' to define your key!");
+                return;
             }
+
+            ServerMgr.Instance.StartCoroutine(ValidateSecretKey(Settings.SecretKey));
         }
 
-        public void UpdateConfig()
-        {
-            this.SaveConfig();
-        }
-        
-        public IPlayer getPlayerById(String id)
-        {
-            return players.FindPlayerById(id);
-        }
+        private void Unload() => ServerMgr.Instance.StopAllCoroutines();
 
-        public bool isPlayerOnline(IPlayer player)
-        {            
-            return player.IsConnected;
-        }
+        #endregion
 
-        public void runCommand(string cmd)
-        {
-            server.Command(cmd);
-        }
+        #region Commands
 
-        [Command("tebex:info")]
-        void cmdInfo(IPlayer player, String cmd, String[] args)
-        {
-            if (player == null || player.IsAdmin)
-            {
-                CommandTebexInfo cmdCommandTebexInfo = new CommandTebexInfo();
-                cmdCommandTebexInfo.Execute(player, cmd, args);
-            }
-        }
-        
+        #region Server side
+
         [Command("tebex:secret")]
-        void cmdSecret(IPlayer player, String cmd, String[] args)
+        private void CmdSetSecret(IPlayer player, string command, string[] args)
         {
-            if (player.IsServer)
+            if (!player.IsServer) return;
+            
+            if (args.Length == 0)
             {
-                CommandTebexSecret cmdCommandTebexSecret = new CommandTebexSecret();
-                cmdCommandTebexSecret.Execute(player, cmd, args);
+                PrintError($"You did not enter your secret key!");
+                return;
             }
-        }            
 
-        [Command("tebex:forcecheck")]
-        void cmdForcecheck(IPlayer player, String cmd, String[] args)
-        {
-            if (player == null || player.IsAdmin)
-            {
-                CommandTebexForcecheck cmdCommandTebexForcecheck = new CommandTebexForcecheck();
-                cmdCommandTebexForcecheck.Execute(player, cmd, args);
-            }
+            ServerMgr.Instance.StartCoroutine(ValidateSecretKey(args[0], true));
         }
+
+        #endregion
+
+        #region Client side
 
         [Command("buy")]
-        void cmdBuy(IPlayer player, String cmd, String[] args)
+        private void CmdBuyInformation(IPlayer player, string command, string[] args)
         {
-            player.Message(lang.GetMessage("WebstoreUrl", this, player.Id).Replace("{webstoreUrl}", Instance.information.domain));
-        }
-        
-    }
-}
+            if (player.IsServer) return;
 
-namespace Oxide.Plugins.TebexDonateUtils.Commands
-{
-    
-    public interface ITebexCommand
-    {        
-        void Execute(IPlayer player, String cmd, String[] args);
-        
-        void HandleResponse(JObject response);
-
-        void HandleError(Exception e);
-        
-    }  
-    
-    public class CommandTebexSecret : ITebexCommand
-    {
-
-        public void Execute(IPlayer player, String cmd, String[] args)
-        {
-
-            String secret = args[0];
-
-            Oxide.Plugins.TebexDonate.Instance.Config["secret"] = secret;
-            Oxide.Plugins.TebexDonate.Instance.UpdateConfig();
-            // Set a custom timeout (in milliseconds)
-            var timeout = 2000f;
-
-            // Set some custom request headers (eg. for HTTP Basic Auth)
-            var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
-            WebRequests webrequest = new WebRequests();
-            webrequest.Enqueue((string) Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "information",null, (code, response) =>
-            {
-                if (response == null || code != 200)
-                {
-                    HandleError(new Exception("Error: code" + code.ToString()));
-                    webrequest.Shutdown();
-                    return;
-                }
-                
-                HandleResponse(JObject.Parse(response));
-                webrequest.Shutdown();
-                
-            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.GET, headers, timeout);
-
-        }
-
-        public void HandleResponse(JObject response)
-        {
-            Oxide.Plugins.TebexDonate.Instance.information.id = (int) response["account"]["id"];
-            Oxide.Plugins.TebexDonate.Instance.information.domain = (string) response["account"]["domain"];
-            Oxide.Plugins.TebexDonate.Instance.information.gameType = (string) response["account"]["game_type"];
-            Oxide.Plugins.TebexDonate.Instance.information.name = (string) response["account"]["name"];
-            Oxide.Plugins.TebexDonate.Instance.information.currency = (string) response["account"]["currency"]["iso_4217"];
-            Oxide.Plugins.TebexDonate.Instance.information.currencySymbol = (string) response["account"]["currency"]["symbol"];
-            Oxide.Plugins.TebexDonate.Instance.information.serverId = (int) response["server"]["id"];
-            Oxide.Plugins.TebexDonate.Instance.information.serverName = (string) response["server"]["name"];
+            var message = lang.GetMessage("BUY", this, player.Id);
+            message = message.Replace("{url}", FinalURL).Replace("{webstoreUrl}", FinalURL);
             
-            Interface.Oxide.LogInfo("Your secret key has been validated! Webstore Name: " + Oxide.Plugins.TebexDonate.Instance.information.name);
+            player.Message(message);  
         }
 
-        public void HandleError(Exception e)
+        #endregion
+
+        #endregion
+
+        #region Methods
+
+        private void ProcessCommands(List<int> commandIds)
         {
-            Interface.Oxide.LogError("We were unable to validate your secret key.");
-        }      
-    }
-    
-    public class CommandTebexInfo : ITebexCommand
-    {      
-        public void Execute(IPlayer player, String cmd, String[] args)
-        {           
-            // Set a custom timeout (in milliseconds)
-            var timeout = 2000f;
+            string requestUri = BaseURL + "queue?";
+            string amp = "";
 
-            // Set some custom request headers (eg. for HTTP Basic Auth)
-            var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
-
-            WebRequests webrequest = new WebRequests();
-            webrequest.Enqueue((string) Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "information", null, (code, response) =>
+            foreach (var check in commandIds)
             {
-                if (response == null || code != 200)
-                {
-                    HandleError(new Exception("Error"));
-                    webrequest.Shutdown();
-                    return;
-                }
-                
-                HandleResponse(JObject.Parse(response));
-                webrequest.Shutdown();
-                
-            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.GET, headers, timeout);
-
-        }
-
-        public void HandleResponse(JObject response)
-        {
-            Oxide.Plugins.TebexDonate.Instance.information.id = (int) response["account"]["id"];
-            Oxide.Plugins.TebexDonate.Instance.information.domain = (string) response["account"]["domain"];
-            Oxide.Plugins.TebexDonate.Instance.information.gameType = (string) response["account"]["game_type"];
-            Oxide.Plugins.TebexDonate.Instance.information.name = (string) response["account"]["name"];
-            Oxide.Plugins.TebexDonate.Instance.information.currency = (string) response["account"]["currency"]["iso_4217"];
-            Oxide.Plugins.TebexDonate.Instance.information.currencySymbol = (string) response["account"]["currency"]["symbol"];
-            Oxide.Plugins.TebexDonate.Instance.information.serverId = (int) response["server"]["id"];
-            Oxide.Plugins.TebexDonate.Instance.information.serverName = (string) response["server"]["name"];
-            
-            Interface.Oxide.LogInfo("Server Information");
-            Interface.Oxide.LogInfo("=================");
-            Interface.Oxide.LogInfo("Server "+Oxide.Plugins.TebexDonate.Instance.information.serverName+" for webstore "+Oxide.Plugins.TebexDonate.Instance.information.name+"");
-            Interface.Oxide.LogInfo("Server prices are in "+Oxide.Plugins.TebexDonate.Instance.information.currency+"");
-            Interface.Oxide.LogInfo("Webstore domain: "+Oxide.Plugins.TebexDonate.Instance.information.domain+"");
-        }
-
-        public void HandleError(Exception e)
-        {
-            Interface.Oxide.LogError("We are unable to fetch your server details. Please check your secret key.");
-        }      
-    }    
-    
-    public class CommandTebexForcecheck: ITebexCommand
-    {
-
-        public void Execute(IPlayer player, String cmd, String[] args)
-        {           
-            Interface.Oxide.LogInfo("Checking for commands to be executed...");
-            // Set a custom timeout (in milliseconds)
-            var timeout = 2000f;
-
-            // Set some custom request headers (eg. for HTTP Basic Auth)
-            var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
-
-            WebRequests webrequest = new WebRequests();
-            webrequest.Enqueue((string) Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "queue", null, (code, response) =>
-            {
-                if (response == null || code != 200)
-                {
-                    HandleError(new Exception("Error"));
-                    webrequest.Shutdown();
-                    return;
-                }
-                
-                HandleResponse(JObject.Parse(response));
-                webrequest.Shutdown();
-                
-            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.GET, headers, timeout);
-
-        }
-
-        public void HandleResponse(JObject response)
-        {
-            if ((int) response["meta"]["next_check"] > 0)
-            {
-                Oxide.Plugins.TebexDonate.Instance.nextCheck = (int) response["meta"]["next_check"];
-            }
-            
-            if ((bool) response["meta"]["execute_offline"])
-            {
-                try
-                {
-                    TebexCommandRunner.doOfflineCommands();
-                }
-                catch (Exception e)
-                {
-                    Interface.Oxide.LogError(e.ToString());
-                }
-            }
-            
-            JArray players = (JArray) response["players"];
-
-            foreach (var player in players)
-            {
-                try
-                {
-                    IPlayer targetPlayer = Oxide.Plugins.TebexDonate.Instance.getPlayerById((string) player["uuid"]);                    
-
-                    if (targetPlayer != null && Oxide.Plugins.TebexDonate.Instance.isPlayerOnline(targetPlayer))
-                    {
-                        Interface.Oxide.LogInfo("Execute commands for " + targetPlayer.Name + "(ID: "+targetPlayer.Id+")");
-                        TebexCommandRunner.doOnlineCommands((int) player["id"], (string) targetPlayer.Name, targetPlayer.Id);
-                    }
-                }
-                catch (Exception e)
-                {
-                    Interface.Oxide.LogError(e.Message);
-                }
-            }
-        }
-
-        public void HandleError(Exception e)
-        {
-            Interface.Oxide.LogError("We are unable to fetch your server queue. Please check your secret key.");
-            Interface.Oxide.LogError(e.ToString());
-        }      
-    }    
-    
-    public class TebexCommandRunner
-    {
-
-        public static int deleteAfter = 3;
-        
-        public static void doOfflineCommands()
-        {
-            String url = Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "queue/offline-commands";
-
-            // Set a custom timeout (in milliseconds)
-            var timeout = 2000f;
-
-            // Set some custom request headers (eg. for HTTP Basic Auth)
-            var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
-
-            WebRequests webrequest = new WebRequests();
-            webrequest.Enqueue(url, null, (code, response) =>
-            {
-                JObject json = JObject.Parse(response);
-                JArray commands = (JArray) json["commands"];
-
-                int exCount = 0;
-                List<int> executedCommands = new List<int>();
-                
-                foreach (var command in commands.Children())
-                {
-                    String commandToRun = buildCommand((string) command["command"], (string) command["player"]["name"],
-                        (string) command["player"]["uuid"]);
-                    
-                    Interface.Oxide.LogInfo("Run command " + commandToRun);
-                    Oxide.Plugins.TebexDonate.Instance.runCommand(commandToRun);
-                    executedCommands.Add((int) command["id"]);
-
-                    exCount++;
-
-                    if (exCount % deleteAfter == 0)
-                    {
-                        try
-                        {
-                            deleteCommands(executedCommands);
-                            executedCommands.Clear();
-                        }
-                        catch (Exception ex)
-                        {
-                            Interface.Oxide.LogError(ex.ToString());
-                        }
-                    }
-                    
-                }
-                
-                Interface.Oxide.LogInfo(exCount.ToString() + " offline commands executed");
-                if (exCount % deleteAfter != 0)
-                {
-                    try
-                    {
-                        deleteCommands(executedCommands);
-                        executedCommands.Clear();
-                    }
-                    catch (Exception ex)
-                    {
-                        Interface.Oxide.LogError(ex.ToString());
-                    }
-                }
-
-                webrequest.Shutdown();
-            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.GET, headers, timeout);
-        }
-
-        public static void doOnlineCommands(int playerPluginId, string playerName, string playerId)
-        {
-            
-            Interface.Oxide.LogInfo("Running online commands for "+playerName+" (" + playerId + ")");
-            
-
-            String url = Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "queue/online-commands/" + playerPluginId.ToString();
-
-            // Set a custom timeout (in milliseconds)
-            var timeout = 2000f;
-
-            // Set some custom request headers (eg. for HTTP Basic Auth)
-            var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
-
-            WebRequests webrequest = new WebRequests();
-            webrequest.Enqueue(url, null, (code, response) =>
-            {
-                JObject json = JObject.Parse(response);
-                JArray commands = (JArray) json["commands"];
-
-                int exCount = 0;
-                List<int> executedCommands = new List<int>();
-                
-                foreach (var command in commands.Children())
-                {
-
-                    String commandToRun = buildCommand((string) command["command"], playerName, playerId);
-                    
-                    Interface.Oxide.LogInfo("Run command " + commandToRun);
-                    Oxide.Plugins.TebexDonate.Instance.runCommand(commandToRun);
-                    executedCommands.Add((int) command["id"]);
-
-                    exCount++;
-
-                    if (exCount % deleteAfter == 0)
-                    {
-                        try
-                        {
-                            deleteCommands(executedCommands);
-                            executedCommands.Clear();
-                        }
-                        catch (Exception ex)
-                        {
-                            Interface.Oxide.LogError(ex.ToString());
-                        }
-                    }
-                    
-                }
-                
-                Interface.Oxide.LogInfo(exCount.ToString() + " online commands executed for " + playerName);
-                if (exCount % deleteAfter != 0)
-                {
-                    try
-                    {
-                        deleteCommands(executedCommands);
-                        executedCommands.Clear();
-                    }
-                    catch (Exception ex)
-                    {
-                        Interface.Oxide.LogError(ex.ToString());
-                    }
-                }
-
-                webrequest.Shutdown();
-            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.GET, headers, timeout);
-
-        }
-
-        public static void deleteCommands(List<int> commandIds)
-        {
-
-            String url = Oxide.Plugins.TebexDonate.Instance.Config["baseUrl"] + "queue?";
-            String amp = "";
-
-            foreach (int CommandId in commandIds)
-            {
-                url = url + amp + "ids[]=" + CommandId;
+                PrintWarning($"Delete command: {check}");
+                requestUri += $"{amp}ids[]={check}";
                 amp = "&";
             }
-
-            // Set a custom timeout (in milliseconds)
-            var timeout = 2000f;
-
-            // Set some custom request headers (eg. for HTTP Basic Auth)
-            var headers = new Dictionary<string, string> { { "X-Buycraft-Secret", (string) Oxide.Plugins.TebexDonate.Instance.Config["secret"] } };
             
-            WebRequests webrequest = new WebRequests();
-            webrequest.Enqueue(url, "", (code, response) =>
+            webrequest.Enqueue(requestUri, "", (code, response) =>
             {
-                webrequest.Shutdown();
-                
-            }, Oxide.Plugins.TebexDonate.Instance, RequestMethod.DELETE, headers, timeout);                        
+            }, this, RequestMethod.DELETE, new Dictionary<string, string> { ["X-Buycraft-Secret"] = Settings.SecretKey }, 3000);   
         }
 
-        public static string buildCommand(string command, string username, string id)
+        private IEnumerator CheckQueue()
         {
-            return command.Replace("{id}", id).Replace("{username}", username);
-        }
-    }    
-}
+            while (true)
+            {
+                Debug("Start processing commands in queue");
+                webrequest.Enqueue(BaseURL + "queue", "", (code, response) =>
+                {
+                    if (response == null || code != 200)
+                    {
+                        PrintError("We are unable to fetch your server queue. Please check your secret key.");
+                        return;
+                    }
 
-namespace Oxide.Plugins.TebexDonateUtils.Models
-{
-    public class WebstoreInfo
-    {
-        public int id;
-        public string name;
-        public string domain;
-        public string currency;
-        public string currencySymbol;
-        public string gameType;
-        public string serverName;
-        public int serverId;
+                    try
+                    {
+                        var jObject = JObject.Parse(response);
+                        if ((bool) jObject["meta"]["execute_offline"])
+                        {
+                            ServerMgr.Instance.StartCoroutine(FetchOfflineCommands());
+                        }
+
+                        foreach (var check in (JArray) jObject["players"])
+                        {
+                            var target = players.FindPlayerById(check["uuid"].ToString());
+                            if (!target.IsConnected) continue;
+
+                            Debug($"Executing commands for {target.Name}");
+                            ServerMgr.Instance.StartCoroutine(FetchOnlineCommands(target, check["id"].ToString()));
+                        }
+                    }
+                    catch(JsonReaderException)
+                    {
+                        PrintError($"Wrong response from server, contact owners!");
+                    }
+                }, this, RequestMethod.GET, new Dictionary<string, string> { ["X-Buycraft-Secret"] = Settings.SecretKey }, 3000);                
+                
+                yield return new WaitForSeconds(15);
+            }
+        }
+        
+        private IEnumerator FetchOnlineCommands(IPlayer player, string shopPlayerId)
+        {
+            Debug("Start processing online commands in queue"); 
+            webrequest.Enqueue(BaseURL + $"queue/online-commands/{shopPlayerId}", "", (code, response) =>
+            {
+                if (response == null || code != 200)
+                {
+                    PrintError("We are unable to fetch your server queue. Please check your secret key.");
+                    return;
+                }
+
+                try
+                {
+                    var jObject = JObject.Parse(response);
+                    var executeCommands = new List<int>();
+                    
+                    foreach (var check in (JArray) jObject["commands"])
+                    {
+                        string command = (string) check["command"];
+                        command = command.Replace("{id}", (string) player.Id).Replace("{username}", (string) player.Name); 
+                        
+                        executeCommands.Add((int) check["id"]);
+                        Debug($"Executing command: {command}");
+                        server.Command(command);
+
+                        if (executeCommands.Count % 3 == 0)
+                        {
+                            try
+                            {
+                                ProcessCommands(executeCommands);
+                                executeCommands.Clear();
+                            } 
+                            catch
+                            {
+                                Debug("Failed delete executed commands!");
+                            }
+                        }
+                    }
+                    
+                    ProcessCommands(executeCommands);
+                }
+                catch(JsonReaderException)
+                {
+                    PrintError($"Wrong response from server, contact owners!");
+                }
+            }, this, RequestMethod.GET, new Dictionary<string, string> { ["X-Buycraft-Secret"] = Settings.SecretKey }, 3000);     
+            
+            yield return 0;
+        }
+
+        private IEnumerator FetchOfflineCommands()
+        {
+            Debug("Start processing offline commands in queue");
+            webrequest.Enqueue(BaseURL + "queue/offline-commands", "", (code, response) =>
+            {
+                if (response == null || code != 200)
+                {
+                    PrintError("We are unable to fetch your server queue. Please check your secret key.");
+                    return;
+                }
+
+                try
+                {
+                    var jObject = JObject.Parse(response);
+                    var executeCommands = new List<int>();
+                    
+                    foreach (var check in (JArray) jObject["commands"])
+                    {
+                        string command = (string) check["command"];
+                        command = command.Replace("{id}", (string) check["player"]["name"]).Replace("{username}", (string) check["player"]["uuid"]); 
+                        
+                        executeCommands.Add((int) check["id"]);
+                        Debug($"Executing command: {command}");
+                        server.Command(command);
+
+                        if (executeCommands.Count % 3 == 0)
+                        {
+                            try
+                            {
+                                ProcessCommands(executeCommands);
+                                executeCommands.Clear();
+                            }
+                            catch 
+                            {
+                                Debug("Failed delete executed commands!");
+                            }
+                        }
+                    }
+                    
+                    ProcessCommands(executeCommands); 
+                }
+                catch(JsonReaderException)
+                {
+                    PrintError($"Wrong response from server, contact owners!");
+                }
+            }, this, RequestMethod.GET, new Dictionary<string, string> { ["X-Buycraft-Secret"] = Settings.SecretKey }, 3000);     
+            
+            yield return 0;
+        }
+
+        private IEnumerator ValidateSecretKey(string key, bool setup = false)
+        {
+            webrequest.Enqueue(BaseURL + "information", "", (code, response) =>
+            {
+                if (response == null || code != 200)
+                {
+                    PrintError($"Something wrong, contact developers [Code: {code}]");
+                    return;
+                }
+
+                if (setup)
+                {
+                    PrintWarning($"Congratulations, you confirmed your secret key!"); 
+                    
+                    Settings.SecretKey = key;
+                    SaveConfig();
+                }
+
+                ServerMgr.Instance.StartCoroutine(FetchShopInformation());
+            }, this, RequestMethod.GET, new Dictionary<string, string> { ["X-Buycraft-Secret"] = key });
+            
+            yield return 0;
+        }
+
+        private IEnumerator FetchShopInformation()
+        {
+            webrequest.Enqueue(BaseURL + "information", "", (code, response) =>
+            {
+                if (response == null || code != 200)
+                {
+                    PrintError($"We are unable to fetch your server details. Please check your secret key.");
+                    return;
+                }
+
+                try
+                {
+                    var jObject = JObject.Parse(response);
+                    PrintWarning($"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                    PrintWarning($" {jObject["account"]["domain"]} [{jObject["account"]["currency"]["iso_4217"]}]"); 
+                    PrintWarning($"         {jObject["server"]["name"]} for {jObject["account"]["name"]}"); 
+                    PrintWarning($"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+
+                    FinalURL = jObject["account"]["domain"].ToString();
+                    ServerMgr.Instance.StartCoroutine(CheckQueue());
+                }
+                catch(JsonReaderException)
+                {
+                    PrintError($"Wrong response from server, contact owners!");
+                }
+                
+            }, this, RequestMethod.GET, new Dictionary<string, string> { ["X-Buycraft-Secret"] = Settings.SecretKey }, 3000);
+            
+            yield return 0;
+        }
+
+        #endregion
+
+        #region Utils
+
+        private void Debug(string input)
+        {
+            if (Settings.DebugInformation) Puts(input);
+            LogToFile("Debug", $"{DateTime.Now.ToShortDateString()} {DateTime.Now.ToShortTimeString()} >>> {input}", this); 
+        }
+
+        #endregion
     }
 }
