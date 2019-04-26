@@ -113,6 +113,14 @@ namespace Oxide.Plugins
             ServerMgr.Instance.StartCoroutine(ValidateSecretKey(args[0], true));
         }
 
+        [Command("tebex:info")]
+        private void CmdInfo(IPlayer player, string command, string[] args)
+        {
+            if (!player.IsServer) return;
+            
+            ServerMgr.Instance.StartCoroutine(FetchShopInformation(false));
+        }
+        
         #endregion
 
         #region Client side
@@ -155,6 +163,7 @@ namespace Oxide.Plugins
         {
             while (true)
             {
+                int timeToNextCheck = 225;
                 Debug("Start processing commands in queue");
                 webrequest.Enqueue(BaseURL + "queue", "", (code, response) =>
                 {
@@ -172,13 +181,15 @@ namespace Oxide.Plugins
                             ServerMgr.Instance.StartCoroutine(FetchOfflineCommands());
                         }
 
+                        timeToNextCheck = (int) jObject["meta"]["next_check"];
+
                         foreach (var check in (JArray) jObject["players"])
                         {
                             var target = players.FindPlayerById(check["uuid"].ToString());
-                            if (!target.IsConnected) continue;
+                            if (target == null || !target.IsConnected) continue;
 
                             Debug($"Executing commands for {target.Name}");
-                            ServerMgr.Instance.StartCoroutine(FetchOnlineCommands(target, check["id"].ToString()));
+                            ServerMgr.Instance.StartCoroutine(FetchOnlineCommands(target, check["id"].ToString()));                            
                         }
                     }
                     catch(JsonReaderException)
@@ -187,8 +198,69 @@ namespace Oxide.Plugins
                     }
                 }, this, RequestMethod.GET, new Dictionary<string, string> { ["X-Buycraft-Secret"] = Settings.SecretKey }, 3000);                
                 
-                yield return new WaitForSeconds(15);
+                yield return new WaitForSeconds(timeToNextCheck);
             }
+        }
+
+        private IEnumerator ExecuteOnlineCommands(IPlayer player, JObject jObject)
+        {
+                     
+                var executeCommands = new List<int>();
+                    
+                foreach (var check in (JArray) jObject["commands"])
+                {
+                    string command = (string) check["command"];
+                    command = command.Replace("{id}", (string) player.Id).Replace("{username}", (string) player.Name); 
+                        
+                    executeCommands.Add((int) check["id"]);
+                    Debug($"Executing command: {command}");
+                    server.Command(command);
+                    yield return new WaitForSeconds(0.25F);
+                    if (executeCommands.Count % 15 == 0)
+                    {
+                        try
+                        {
+                            ProcessCommands(executeCommands);
+                            executeCommands.Clear();
+                        } 
+                        catch
+                        {
+                            Debug("Failed delete executed commands!");
+                        }
+                    }
+                }
+                    
+                ProcessCommands(executeCommands);           
+        }
+
+        private IEnumerator ExecuteOfflineCommands(JObject jObject)
+        {
+            var executeCommands = new List<int>();
+                    
+            foreach (var check in (JArray) jObject["commands"])
+            {
+                string command = (string) check["command"];
+                command = command.Replace("{id}", (string) check["player"]["name"]).Replace("{username}", (string) check["player"]["uuid"]); 
+                        
+                executeCommands.Add((int) check["id"]);
+                Debug($"Executing command: {command}");
+                server.Command(command);                        
+                yield return new WaitForSeconds(0.25F);
+                if (executeCommands.Count % 15 == 0)
+                {
+                    try
+                    {
+                        ProcessCommands(executeCommands);
+                        executeCommands.Clear();
+                    }
+                    catch 
+                    {
+                        Debug("Failed delete executed commands!");
+                    }
+                }
+            }
+                    
+            ProcessCommands(executeCommands);            
         }
         
         private IEnumerator FetchOnlineCommands(IPlayer player, string shopPlayerId)
@@ -201,41 +273,15 @@ namespace Oxide.Plugins
                     PrintError("We are unable to fetch your server queue. Please check your secret key.");
                     return;
                 }
-
                 try
                 {
                     var jObject = JObject.Parse(response);
-                    var executeCommands = new List<int>();
-                    
-                    foreach (var check in (JArray) jObject["commands"])
-                    {
-                        string command = (string) check["command"];
-                        command = command.Replace("{id}", (string) player.Id).Replace("{username}", (string) player.Name); 
-                        
-                        executeCommands.Add((int) check["id"]);
-                        Debug($"Executing command: {command}");
-                        server.Command(command);
-
-                        if (executeCommands.Count % 3 == 0)
-                        {
-                            try
-                            {
-                                ProcessCommands(executeCommands);
-                                executeCommands.Clear();
-                            } 
-                            catch
-                            {
-                                Debug("Failed delete executed commands!");
-                            }
-                        }
-                    }
-                    
-                    ProcessCommands(executeCommands);
+                    ServerMgr.Instance.StartCoroutine(ExecuteOnlineCommands(player, jObject));
                 }
                 catch(JsonReaderException)
                 {
                     PrintError($"Wrong response from server, contact owners!");
-                }
+                }                  
             }, this, RequestMethod.GET, new Dictionary<string, string> { ["X-Buycraft-Secret"] = Settings.SecretKey }, 3000);     
             
             yield return 0;
@@ -254,33 +300,8 @@ namespace Oxide.Plugins
 
                 try
                 {
-                    var jObject = JObject.Parse(response);
-                    var executeCommands = new List<int>();
-                    
-                    foreach (var check in (JArray) jObject["commands"])
-                    {
-                        string command = (string) check["command"];
-                        command = command.Replace("{id}", (string) check["player"]["name"]).Replace("{username}", (string) check["player"]["uuid"]); 
-                        
-                        executeCommands.Add((int) check["id"]);
-                        Debug($"Executing command: {command}");
-                        server.Command(command);
-
-                        if (executeCommands.Count % 3 == 0)
-                        {
-                            try
-                            {
-                                ProcessCommands(executeCommands);
-                                executeCommands.Clear();
-                            }
-                            catch 
-                            {
-                                Debug("Failed delete executed commands!");
-                            }
-                        }
-                    }
-                    
-                    ProcessCommands(executeCommands); 
+                    var jObject = JObject.Parse(response); 
+                    ServerMgr.Instance.StartCoroutine(ExecuteOfflineCommands(jObject));
                 }
                 catch(JsonReaderException)
                 {
@@ -309,13 +330,13 @@ namespace Oxide.Plugins
                     SaveConfig();
                 }
 
-                ServerMgr.Instance.StartCoroutine(FetchShopInformation());
+                ServerMgr.Instance.StartCoroutine(FetchShopInformation(true));
             }, this, RequestMethod.GET, new Dictionary<string, string> { ["X-Buycraft-Secret"] = key });
             
             yield return 0;
         }
 
-        private IEnumerator FetchShopInformation()
+        private IEnumerator FetchShopInformation(bool startCheck)
         {
             webrequest.Enqueue(BaseURL + "information", "", (code, response) =>
             {
@@ -334,7 +355,10 @@ namespace Oxide.Plugins
                     PrintWarning($"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
                     FinalURL = jObject["account"]["domain"].ToString();
-                    ServerMgr.Instance.StartCoroutine(CheckQueue());
+                    if (startCheck)
+                    {
+                        ServerMgr.Instance.StartCoroutine(CheckQueue());
+                    }
                 }
                 catch(JsonReaderException)
                 {
