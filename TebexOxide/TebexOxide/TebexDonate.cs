@@ -181,7 +181,7 @@ namespace Oxide.Plugins
                             ServerMgr.Instance.StartCoroutine(FetchOfflineCommands());
                         }
 
-                        timeToNextCheck = (int) jObject["meta"]["next_check"];
+                        timeToNextCheck = (int) jObject["meta"]["next_check"] / 4;
 
                         foreach (var check in (JArray) jObject["players"])
                         {
