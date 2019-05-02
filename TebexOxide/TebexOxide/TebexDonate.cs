@@ -47,8 +47,9 @@ namespace Oxide.Plugins
         private static Coroutine MainProcess = null;
         private static string BaseURL = "https://plugin.buycraft.net/";
         private static Configuration Settings = Configuration.Generate(); 
-        
+                
         List<Coroutine> CoRoutines = new List<Coroutine>();
+        WaitForSeconds shortWait = new WaitForSeconds(0.25F);
 
         #endregion
 
@@ -225,7 +226,7 @@ namespace Oxide.Plugins
                     executeCommands.Add((int) check["id"]);
                     Debug($"Executing command: {command}");
                     server.Command(command);
-                    yield return new WaitForSeconds(0.25F);
+                    yield return shortWait;
                     if (executeCommands.Count % 15 == 0)
                     {
                         try
@@ -255,7 +256,7 @@ namespace Oxide.Plugins
                 executeCommands.Add((int) check["id"]);
                 Debug($"Executing command: {command}");
                 server.Command(command);                        
-                yield return new WaitForSeconds(0.25F);
+                yield return shortWait;
                 if (executeCommands.Count % 15 == 0)
                 {
                     try
