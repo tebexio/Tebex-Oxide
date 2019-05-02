@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Newtonsoft.Json;
@@ -9,11 +9,10 @@ using Oxide.Core.Libraries.Covalence;
 using UnityEngine;
 using WebSocketSharp;
 
-// Code re-worked by Hougan 25.04.2019
 
 namespace Oxide.Plugins
 {
-    [Info("Tebex Donate", "Tebex", "1.1.1")]
+    [Info("Tebex Donate", "Tebex", "1.2.0")]
     [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
@@ -48,6 +47,8 @@ namespace Oxide.Plugins
         private static Coroutine MainProcess = null;
         private static string BaseURL = "https://plugin.buycraft.net/";
         private static Configuration Settings = Configuration.Generate(); 
+        
+        List<Coroutine> CoRoutines = new List<Coroutine>();
 
         #endregion
 
@@ -88,10 +89,15 @@ namespace Oxide.Plugins
                 return;
             }
 
-            ServerMgr.Instance.StartCoroutine(ValidateSecretKey(Settings.SecretKey));
+            var cr = ServerMgr.Instance.StartCoroutine(ValidateSecretKey(Settings.SecretKey));
+            CoRoutines.Add(cr);
         }
 
-        private void Unload() => ServerMgr.Instance.StopAllCoroutines();
+        private void Unload()
+        {
+            foreach (var coroutine in CoRoutines)
+            ServerMgr.Instance.StopCoroutine(coroutine);
+        }
 
         #endregion
 
@@ -110,7 +116,8 @@ namespace Oxide.Plugins
                 return;
             }
 
-            ServerMgr.Instance.StartCoroutine(ValidateSecretKey(args[0], true));
+            var cr = ServerMgr.Instance.StartCoroutine(ValidateSecretKey(args[0], true));
+            CoRoutines.Add(cr);
         }
 
         [Command("tebex:info")]
@@ -118,7 +125,8 @@ namespace Oxide.Plugins
         {
             if (!player.IsServer) return;
             
-            ServerMgr.Instance.StartCoroutine(FetchShopInformation(false));
+            var cr = ServerMgr.Instance.StartCoroutine(FetchShopInformation(false));
+            CoRoutines.Add(cr);
         }
         
         #endregion
@@ -178,7 +186,8 @@ namespace Oxide.Plugins
                         var jObject = JObject.Parse(response);
                         if ((bool) jObject["meta"]["execute_offline"])
                         {
-                            ServerMgr.Instance.StartCoroutine(FetchOfflineCommands());
+                            var cr = ServerMgr.Instance.StartCoroutine(FetchOfflineCommands());
+                            CoRoutines.Add(cr);
                         }
 
                         timeToNextCheck = (int) jObject["meta"]["next_check"] / 4;
@@ -189,7 +198,8 @@ namespace Oxide.Plugins
                             if (target == null || !target.IsConnected) continue;
 
                             Debug($"Executing commands for {target.Name}");
-                            ServerMgr.Instance.StartCoroutine(FetchOnlineCommands(target, check["id"].ToString()));                            
+                            var cr = ServerMgr.Instance.StartCoroutine(FetchOnlineCommands(target, check["id"].ToString()));                            
+                            CoRoutines.Add(cr);
                         }
                     }
                     catch(JsonReaderException)
@@ -240,7 +250,7 @@ namespace Oxide.Plugins
             foreach (var check in (JArray) jObject["commands"])
             {
                 string command = (string) check["command"];
-                command = command.Replace("{id}", (string) check["player"]["name"]).Replace("{username}", (string) check["player"]["uuid"]); 
+                command = command.Replace("{id}", (string) check["player"]["uuid"]).Replace("{username}", (string) check["player"]["name"]); 
                         
                 executeCommands.Add((int) check["id"]);
                 Debug($"Executing command: {command}");
@@ -276,7 +286,8 @@ namespace Oxide.Plugins
                 try
                 {
                     var jObject = JObject.Parse(response);
-                    ServerMgr.Instance.StartCoroutine(ExecuteOnlineCommands(player, jObject));
+                    var cr = ServerMgr.Instance.StartCoroutine(ExecuteOnlineCommands(player, jObject));
+                    CoRoutines.Add(cr);
                 }
                 catch(JsonReaderException)
                 {
@@ -301,7 +312,8 @@ namespace Oxide.Plugins
                 try
                 {
                     var jObject = JObject.Parse(response); 
-                    ServerMgr.Instance.StartCoroutine(ExecuteOfflineCommands(jObject));
+                    var cr = ServerMgr.Instance.StartCoroutine(ExecuteOfflineCommands(jObject));
+                    CoRoutines.Add(cr);
                 }
                 catch(JsonReaderException)
                 {
@@ -330,7 +342,8 @@ namespace Oxide.Plugins
                     SaveConfig();
                 }
 
-                ServerMgr.Instance.StartCoroutine(FetchShopInformation(true));
+                var cr = ServerMgr.Instance.StartCoroutine(FetchShopInformation(true));
+                CoRoutines.Add(cr);
             }, this, RequestMethod.GET, new Dictionary<string, string> { ["X-Buycraft-Secret"] = key });
             
             yield return 0;
