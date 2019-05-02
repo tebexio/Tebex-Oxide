@@ -9,11 +9,10 @@ using Oxide.Core.Libraries.Covalence;
 using UnityEngine;
 using WebSocketSharp;
 
-// Code re-worked by Hougan 25.04.2019
 
 namespace Oxide.Plugins
 {
-    [Info("Tebex Donate", "Tebex", "1.1.1")]
+    [Info("Tebex Donate", "Tebex", "1.2.0")]
     [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
