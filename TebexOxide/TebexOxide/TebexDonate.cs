@@ -251,7 +251,7 @@ namespace Oxide.Plugins
             foreach (var check in (JArray) jObject["commands"])
             {
                 string command = (string) check["command"];
-                command = command.Replace("{id}", (string) check["player"]["name"]).Replace("{username}", (string) check["player"]["uuid"]); 
+                command = command.Replace("{id}", (string) check["player"]["uuid"]).Replace("{username}", (string) check["player"]["name"]); 
                         
                 executeCommands.Add((int) check["id"]);
                 Debug($"Executing command: {command}");
