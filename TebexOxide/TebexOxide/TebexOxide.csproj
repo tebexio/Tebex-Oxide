@@ -33,47 +33,50 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Mono.Cecil, Version=0.9.6.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756">
-      <HintPath>..\packages\Mono.Cecil.0.9.6.4\lib\net45\Mono.Cecil.dll</HintPath>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\..\..\Oxide\Assembly-CSharp.dll</HintPath>
     </Reference>
-    <Reference Include="Mono.Cecil.Mdb, Version=0.9.6.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756">
-      <HintPath>..\packages\Mono.Cecil.0.9.6.4\lib\net45\Mono.Cecil.Mdb.dll</HintPath>
+    <Reference Include="Facepunch.Console">
+      <HintPath>..\..\..\..\Oxide\Facepunch.Console.dll</HintPath>
     </Reference>
-    <Reference Include="Mono.Cecil.Pdb, Version=0.9.6.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756">
-      <HintPath>..\packages\Mono.Cecil.0.9.6.4\lib\net45\Mono.Cecil.Pdb.dll</HintPath>
+    <Reference Include="Facepunch.UnityEngine">
+      <HintPath>..\..\..\..\Oxide\Facepunch.UnityEngine.dll</HintPath>
     </Reference>
-    <Reference Include="Mono.Cecil.Rocks, Version=0.9.6.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756">
-      <HintPath>..\packages\Mono.Cecil.0.9.6.4\lib\net45\Mono.Cecil.Rocks.dll</HintPath>
+    <Reference Include="Oxide.Core">
+      <HintPath>..\..\..\..\Oxide\Oxide.Core.dll</HintPath>
     </Reference>
-    <Reference Include="Oxide.Core, Version=2.0.3795.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>..\packages\Oxide.Core.2.0.3795\lib\net461\Oxide.Core.dll</HintPath>
+    <Reference Include="Oxide.CSharp">
+      <HintPath>..\..\..\..\Oxide\Oxide.CSharp.dll</HintPath>
     </Reference>
-    <Reference Include="Oxide.Core, Version=2.0.3867.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>C:\steamcmd\servers\rust\RustDedicated_Data\Managed\Oxide.Core.dll</HintPath>
+    <Reference Include="Oxide.References">
+      <HintPath>..\..\..\..\Oxide\Oxide.References.dll</HintPath>
     </Reference>
-    <Reference Include="Oxide.CSharp, Version=2.0.3815.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>..\packages\Oxide.CSharp.2.0.3815\lib\net461\Oxide.CSharp.dll</HintPath>
+    <Reference Include="Oxide.Rust">
+      <HintPath>..\..\..\..\Oxide\Oxide.Rust.dll</HintPath>
     </Reference>
-    <Reference Include="Oxide.CSharp, Version=2.0.4000.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>C:\steamcmd\servers\rust\RustDedicated_Data\Managed\Oxide.CSharp.dll</HintPath>
+    <Reference Include="Oxide.Unity">
+      <HintPath>..\..\..\..\Oxide\Oxide.Unity.dll</HintPath>
     </Reference>
-    <Reference Include="Oxide.References, Version=2.0.3751.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>..\packages\Oxide.References.2.0.3751\lib\net461\Oxide.References.dll</HintPath>
+    <Reference Include="Rust.Data">
+      <HintPath>..\..\..\..\Oxide\Rust.Data.dll</HintPath>
     </Reference>
-    <Reference Include="Oxide.References, Version=2.0.3765.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>C:\steamcmd\servers\rust\RustDedicated_Data\Managed\Oxide.References.dll</HintPath>
+    <Reference Include="Rust.Localization">
+      <HintPath>..\..\..\..\Oxide\Rust.Localization.dll</HintPath>
     </Reference>
-    <Reference Include="Oxide.Unity, Version=2.0.3751.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>..\packages\Oxide.Unity.2.0.3751\lib\net35\Oxide.Unity.dll</HintPath>
-    </Reference>
-    <Reference Include="Oxide.Unity, Version=2.0.3756.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>C:\steamcmd\servers\rust\RustDedicated_Data\Managed\Oxide.Unity.dll</HintPath>
+    <Reference Include="Rust.UI">
+      <HintPath>..\..\..\..\Oxide\Rust.UI.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml" />
-    <Reference Include="websocket-sharp, Version=1.0.4.0, Culture=neutral, PublicKeyToken=5660b08a1845a91e">
-      <HintPath>..\packages\WebSocketSharpFork.1.0.4.0\lib\net35\websocket-sharp.dll</HintPath>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\..\..\..\Oxide\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextCoreModule">
+      <HintPath>..\..\..\..\Oxide\UnityEngine.TextCoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>..\..\..\..\Oxide\UnityEngine.TextRenderingModule.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
