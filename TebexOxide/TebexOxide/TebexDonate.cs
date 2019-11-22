@@ -7,11 +7,12 @@ using System.Globalization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
+#if RUST
 using Oxide.Core;
+#endif
 using Oxide.Core.Libraries;
 using Oxide.Core.Libraries.Covalence;
 using Oxide.Core.Plugins;
-
 #if RUST
 using Oxide.Game.Rust.Cui;
 
@@ -21,7 +22,7 @@ using UnityEngine;
 namespace Oxide.Plugins
 {
 
-    [Info("Tebex Donate", "Tebex", "1.5.0")]
+    [Info("Tebex Donate", "Tebex", "1.5.1")]
     [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
@@ -100,18 +101,6 @@ namespace Oxide.Plugins
                 Price = price;
                 Image = image;
                 ImageUrl = imageUrl;
-            }
-
-        }
-
-        private class StoredData
-        {
-
-            public Queue<Event> Events { get; set; }
-
-            public StoredData(Queue<Event> events)
-            {
-                Events = events;
             }
 
         }
@@ -413,7 +402,6 @@ namespace Oxide.Plugins
         private bool debugLogResponseErrors;
         private bool debugLogStackTraces;
         private string secretKey;
-        private StoredData storedData;
 
         #endregion
 
@@ -478,15 +466,6 @@ namespace Oxide.Plugins
 
             buyCommandReady = false;
             listings = new SortedDictionary<int, Category>();
-            storedData = Interface.Oxide.DataFileSystem.ExistsDatafile(nameof(TebexDonate)) ? Interface.Oxide.DataFileSystem.ReadObject<StoredData>(nameof(TebexDonate)) : new StoredData(new Queue<Event>());
-
-            if (storedData.Events.Count > 0)
-            {
-                foreach (Event @event in storedData.Events)
-                    events.Enqueue(@event);
-
-                storedData.Events.Clear();
-            }
 
             if (buyEnabled)
                 AddCovalenceCommand(buyCommand, "BuyCommand");
@@ -499,11 +478,8 @@ namespace Oxide.Plugins
 
         private void Unload()
         {
-            if (Interface.Oxide.IsShuttingDown)
-                foreach (IPlayer player in players.Connected)
-                    events.Enqueue(new Event(player.Id, player.Name, "server.leave", FormattedUtcDate()));
             #if RUST
-            else
+            if (!Interface.Oxide.IsShuttingDown)
                 RustUIManager.ClearUIs();
             #endif
 
@@ -515,8 +491,6 @@ namespace Oxide.Plugins
 
             if (validationTimer != null && !validationTimer.Destroyed)
                 validationTimer.Destroy();
-
-            SaveStoredData();
         }
 
         #endregion
@@ -1316,14 +1290,6 @@ namespace Oxide.Plugins
         private T GetConfig<T>(string name, string name1, T defaultValue) => Config[name, name1] == null ? defaultValue : (T)Convert.ChangeType(Config[name, name1], typeof(T));
 
         private T GetConfig<T>(string name, string name1, string name2, T defaultValue) => Config[name, name1, name2] == null ? defaultValue : (T)Convert.ChangeType(Config[name, name1, name2], typeof(T));
-
-        private void SaveStoredData()
-        {
-            if (events.Count > 0)
-                storedData.Events = events;
-
-            Interface.Oxide.DataFileSystem.WriteObject(nameof(TebexDonate), storedData);
-        }
 
         #endregion
 
