@@ -1,15 +1,18 @@
 using System;
 using System.Collections.Generic;
+#if RUST
 using System.Globalization;
+#endif
 
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
+using Oxide.Core;
 using Oxide.Core.Libraries;
 using Oxide.Core.Libraries.Covalence;
 using Oxide.Core.Plugins;
 
 #if RUST
-using Oxide.Core;
 using Oxide.Game.Rust.Cui;
 
 using UnityEngine;
@@ -18,7 +21,7 @@ using UnityEngine;
 namespace Oxide.Plugins
 {
 
-    [Info("Tebex Donate", "Tebex", "1.4.0")]
+    [Info("Tebex Donate", "Tebex", "1.5.0")]
     [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
@@ -59,6 +62,28 @@ namespace Oxide.Plugins
 
         }
 
+        private class Event
+        {
+
+            [JsonProperty("username_id")]
+            public string UsernameId { get; }
+            [JsonProperty("username")]
+            public string Username { get; }
+            [JsonProperty("event_type")]
+            public string EventType { get; }
+            [JsonProperty("event_date")]
+            public string EventDate { get; }
+
+            public Event(string usernameId, string username, string eventType, string eventDate)
+            {
+                UsernameId = usernameId;
+                Username = username;
+                EventType = eventType;
+                EventDate = eventDate;
+            }
+
+        }
+
         private class Package
         {
 
@@ -75,6 +100,18 @@ namespace Oxide.Plugins
                 Price = price;
                 Image = image;
                 ImageUrl = imageUrl;
+            }
+
+        }
+
+        private class StoredData
+        {
+
+            public Queue<Event> Events { get; set; }
+
+            public StoredData(Queue<Event> events)
+            {
+                Events = events;
             }
 
         }
@@ -337,12 +374,14 @@ namespace Oxide.Plugins
         #region Constants and Variables
 
         public static TebexDonate Instance;
+        private Queue<Event> events;
 
         #region API
 
         private static readonly string BASE_URL = "https://plugin.buycraft.net";
         private bool buyCommandReady;
         private SortedDictionary<int, Category> listings;
+        private bool logEvents;
         private string storeCurrency;
         private string storeCurrencySymbol;
         private string storeName;
@@ -374,14 +413,24 @@ namespace Oxide.Plugins
         private bool debugLogResponseErrors;
         private bool debugLogStackTraces;
         private string secretKey;
+        private StoredData storedData;
 
         #endregion
+
+        #region Plugin References
 
         [PluginReference]
         private Plugin ImageLibrary;
 
+        #endregion
+
+        #region Timers
+
         private Timer checkTimer;
+        private Timer eventTimer;
         private Timer validationTimer;
+
+        #endregion
 
         #endregion
 
@@ -422,32 +471,52 @@ namespace Oxide.Plugins
         private void OnServerInitialized()
         {
             Instance = this;
+            events = new Queue<Event>();
 
             LoadDefaultConfig();
             LoadDefaultMessages();
 
             buyCommandReady = false;
             listings = new SortedDictionary<int, Category>();
+            storedData = Interface.Oxide.DataFileSystem.ExistsDatafile(nameof(TebexDonate)) ? Interface.Oxide.DataFileSystem.ReadObject<StoredData>(nameof(TebexDonate)) : new StoredData(new Queue<Event>());
+
+            if (storedData.Events.Count > 0)
+            {
+                foreach (Event @event in storedData.Events)
+                    events.Enqueue(@event);
+
+                storedData.Events.Clear();
+            }
 
             if (buyEnabled)
                 AddCovalenceCommand(buyCommand, "BuyCommand");
 
+            logEvents = false;
             validated = false;
+
             StartValidationTimer();
         }
 
         private void Unload()
         {
+            if (Interface.Oxide.IsShuttingDown)
+                foreach (IPlayer player in players.Connected)
+                    events.Enqueue(new Event(player.Id, player.Name, "server.leave", FormattedUtcDate()));
             #if RUST
-            if (!Interface.Oxide.IsShuttingDown)
+            else
                 RustUIManager.ClearUIs();
             #endif
 
             if (checkTimer != null && !checkTimer.Destroyed)
                 checkTimer.Destroy();
 
+            if (eventTimer != null && !eventTimer.Destroyed)
+                eventTimer.Destroy();
+
             if (validationTimer != null && !validationTimer.Destroyed)
                 validationTimer.Destroy();
+
+            SaveStoredData();
         }
 
         #endregion
@@ -469,9 +538,7 @@ namespace Oxide.Plugins
 
             #if RUST
             if (buyUIEnabled)
-            {
                 RustUIManager.OpenUI(player.Object as BasePlayer, "TD_Listings");
-            }
             else
             #endif
             player.Message(lang.GetMessage("BuyCommand", this, player.Id).Replace("{url}", storeUrl));
@@ -558,9 +625,21 @@ namespace Oxide.Plugins
 
             return null;
         }
-
-        private void OnPlayerDisconnected(BasePlayer player, string reason) => RustUIManager.CloseUI(player);
         #endif
+
+        private void OnUserConnected(IPlayer player) => events.Enqueue(new Event(player.Id, player.Name, "server.join", FormattedUtcDate()));
+
+        private void OnUserDisconnected(IPlayer player)
+        {
+            #if RUST
+            var basePlayer = player.Object as BasePlayer;
+
+            if (basePlayer != null)
+                RustUIManager.CloseUI(basePlayer);
+            #endif
+
+            events.Enqueue(new Event(player.Id, player.Name, "server.leave", FormattedUtcDate()));
+        }
 
         #endregion
 
@@ -610,7 +689,7 @@ namespace Oxide.Plugins
                         }
 
                         JArray jObjectPlayers = (JArray) jObject["players"];
-                        secondsUntilNextCheck = (int) jObject["meta"]["next_check"] / 4;
+                        secondsUntilNextCheck = jObject["meta"]["next_check"].ToObject<int>() / 4;
 
                         if (jObjectPlayers.Count > 0)
                         {
@@ -870,10 +949,12 @@ namespace Oxide.Plugins
                         else if (debugLogActions)
                             PrintWarning("No categories or package listings were found on your store!");
 
-                        buyCommandReady = true;
                         #if RUST
+                        RustUIManager.ClearUIs();
                         RustUIManager.GenerateUIs(storeName, storeCurrency, storeCurrencySymbol, listings);
                         #endif
+
+                        buyCommandReady = true;
                     }
                     catch (Exception e)
                     {
@@ -949,6 +1030,13 @@ namespace Oxide.Plugins
                             CheckCommandQueue(true);
                         }
 
+                        logEvents = jObject["account"]["log_events"].ToObject<bool>();
+
+                        if (logEvents)
+                            StartEventTimer(60f);
+                        else if (eventTimer != null && !eventTimer.Destroyed)
+                            eventTimer.Destroy();
+
                         FetchListings();
                     }
                     catch (Exception e)
@@ -967,6 +1055,72 @@ namespace Oxide.Plugins
 
                 PrintError($"An unhandled error occurred whilst fetching your store information from the secret key provided (response code: {code}).");
             }, this, RequestMethod.GET, AddToHeaders(secretKey), 3000f);
+        }
+
+        private void LogEvents()
+        {
+            if (!logEvents)
+                return;
+
+            if (eventTimer != null && !eventTimer.Destroyed)
+                eventTimer.Destroy();
+
+            Queue<Event> events = new Queue<Event>(this.events);
+            eventTimer = timer.In(60f, () => LogEvents());
+
+            if (events.Count < 1)
+                return;
+
+            Dictionary<string, string> headers = new Dictionary<string, string>()
+            {
+                ["Content-Type"] = "application/json"
+            };
+
+            if (debugLogActions)
+                PrintWarning("Attempting to log all stored connection events...");
+
+            webrequest.Enqueue($"{BASE_URL}/events", JsonConvert.SerializeObject(events), (code, response) =>
+            {
+                switch (code)
+                {
+                    case 204:
+                        foreach (Event @event in events)
+                            this.events.Dequeue();
+
+                        if (debugLogActions)
+                            PrintWarning("Successfully logged all stored connection events!");
+
+                        return;
+                    case 403:
+                        StartValidationTimer(60f);
+                        goto default;
+                    default:
+                        if (response != null)
+                        {
+                            try
+                            {
+                                var jObject = JObject.Parse(response);
+                                PrintWarning($"An error occurred whilst logging player connection events: {jObject["error_message"].ToString()}");
+                            }
+                            catch (Exception e)
+                            {
+                                PrintError($"An exception was thrown whilst logging player connection events: {e.Message}");
+
+                                if (debugLogResponseErrors)
+                                    PrintError($"Associated response: {response}");
+
+                                if (debugLogStackTraces)
+                                    PrintError(e.StackTrace);
+                            }
+
+                            return;
+                        }
+
+                        break;
+                }
+
+                PrintError($"An unhandled error occurred whilst logging player connection events (response code: {code}).");
+            }, this, RequestMethod.POST, AddToHeaders(headers, secretKey), 3000f);
         }
 
         private void ProcessCommands(List<Command> commands)
@@ -1110,6 +1264,17 @@ namespace Oxide.Plugins
 
         #region Web Request Timers
 
+        private void StartEventTimer(float delay = 0f)
+        {
+            if (!validated || (eventTimer != null && !eventTimer.Destroyed))
+                return;
+
+            if (delay > 0f)
+                eventTimer = timer.In(delay, () => LogEvents());
+            else
+                LogEvents();
+        }
+
         private void StartValidationTimer(float delay = 0f)
         {
             if (validationTimer != null && !validationTimer.Destroyed)
@@ -1117,6 +1282,9 @@ namespace Oxide.Plugins
 
             if (checkTimer != null && !checkTimer.Destroyed)
                 checkTimer.Destroy();
+
+            if (eventTimer != null && !eventTimer.Destroyed)
+                eventTimer.Destroy();
 
             validated = false;
 
@@ -1141,11 +1309,21 @@ namespace Oxide.Plugins
             return currentHeaders;
         }
 
+        private string FormattedUtcDate() => DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+
         private T GetConfig<T>(string name, T defaultValue) => Config[name] == null ? defaultValue : (T)Convert.ChangeType(Config[name], typeof(T));
 
         private T GetConfig<T>(string name, string name1, T defaultValue) => Config[name, name1] == null ? defaultValue : (T)Convert.ChangeType(Config[name, name1], typeof(T));
 
         private T GetConfig<T>(string name, string name1, string name2, T defaultValue) => Config[name, name1, name2] == null ? defaultValue : (T)Convert.ChangeType(Config[name, name1, name2], typeof(T));
+
+        private void SaveStoredData()
+        {
+            if (events.Count > 0)
+                storedData.Events = events;
+
+            Interface.Oxide.DataFileSystem.WriteObject(nameof(TebexDonate), storedData);
+        }
 
         #endregion
 
