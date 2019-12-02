@@ -22,7 +22,7 @@ using UnityEngine;
 namespace Oxide.Plugins
 {
 
-    [Info("Tebex Donate", "Tebex", "1.5.1")]
+    [Info("Tebex Donate", "Tebex", "1.5.2")]
     [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
@@ -74,13 +74,16 @@ namespace Oxide.Plugins
             public string EventType { get; }
             [JsonProperty("event_date")]
             public string EventDate { get; }
+            [JsonProperty("ip")]
+            public string IpAddress { get; }
 
-            public Event(string usernameId, string username, string eventType, string eventDate)
+            public Event(string usernameId, string username, string eventType, string eventDate, string ipAddress)
             {
                 UsernameId = usernameId;
                 Username = username;
                 EventType = eventType;
                 EventDate = eventDate;
+                IpAddress = ipAddress;
             }
 
         }
@@ -601,7 +604,7 @@ namespace Oxide.Plugins
         }
         #endif
 
-        private void OnUserConnected(IPlayer player) => events.Enqueue(new Event(player.Id, player.Name, "server.join", FormattedUtcDate()));
+        private void OnUserConnected(IPlayer player) => events.Enqueue(new Event(player.Id, player.Name, "server.join", FormattedUtcDate(), player.Address));
 
         private void OnUserDisconnected(IPlayer player)
         {
@@ -612,7 +615,7 @@ namespace Oxide.Plugins
                 RustUIManager.CloseUI(basePlayer);
             #endif
 
-            events.Enqueue(new Event(player.Id, player.Name, "server.leave", FormattedUtcDate()));
+            events.Enqueue(new Event(player.Id, player.Name, "server.leave", FormattedUtcDate(), player.Address));
         }
 
         #endregion
