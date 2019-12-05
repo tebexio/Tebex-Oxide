@@ -585,7 +585,7 @@ namespace Oxide.Plugins
         #if RUST
         private object OnPlayerCommand(BasePlayer player, string command, string[] args)
         {
-            string fullCommand = command;
+            string fullCommand = command.ToLower();
 
             if (!fullCommand.StartsWith("/"))
                 return null;
