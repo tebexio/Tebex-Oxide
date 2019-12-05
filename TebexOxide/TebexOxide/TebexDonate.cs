@@ -583,9 +583,9 @@ namespace Oxide.Plugins
         #region Oxide Hooks
 
         #if RUST
-        private object OnPlayerCommand(ConsoleSystem.Arg arg)
+        private object OnPlayerCommand(BasePlayer player, string command, string[] args)
         {
-            string fullCommand = arg.FullString.ToLower();
+            string fullCommand = command;
 
             if (!fullCommand.StartsWith("/"))
                 return null;
