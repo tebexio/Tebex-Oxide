@@ -583,9 +583,9 @@ namespace Oxide.Plugins
         #region Oxide Hooks
 
         #if RUST
-        private object OnPlayerCommand(ConsoleSystem.Arg arg)
+        private object OnPlayerCommand(BasePlayer player, string command, string[] args)
         {
-            string fullCommand = arg.FullString.ToLower();
+            string fullCommand = command.ToLower();
 
             if (!fullCommand.StartsWith("/"))
                 return null;
@@ -666,7 +666,7 @@ namespace Oxide.Plugins
                         }
 
                         JArray jObjectPlayers = (JArray) jObject["players"];
-                        secondsUntilNextCheck = jObject["meta"]["next_check"].ToObject<int>() / 4;
+                        secondsUntilNextCheck = jObject["meta"]["next_check"].ToObject<int>();
 
                         if (jObjectPlayers.Count > 0)
                         {
