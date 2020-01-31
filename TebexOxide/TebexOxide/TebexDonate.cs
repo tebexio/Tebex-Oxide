@@ -23,7 +23,7 @@ using UnityEngine;
 namespace Oxide.Plugins
 {
 
-    [Info("Tebex Donate", "Tebex", "1.6.1")]
+    [Info("Tebex Donate", "Tebex", "1.6.0")]
     [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
@@ -64,6 +64,7 @@ namespace Oxide.Plugins
 
         }
 
+        [JsonObject]
         private class Event
         {
 
@@ -85,11 +86,6 @@ namespace Oxide.Plugins
                 EventType = eventType;
                 EventDate = eventDate;
                 IpAddress = ipAddress;
-            }
-
-            public override string ToString()
-            {
-                return $"{{\"username_id\": \"{UsernameId}\", \"username\": \"{ConvertToJson(Username)}\", \"event_type\": \"{EventType}\", \"event_date\": \"{EventDate}\", \"ip\": \"{IpAddress}\"}}";
             }
 
         }
@@ -1058,20 +1054,11 @@ namespace Oxide.Plugins
             {
                 ["Content-Type"] = "application/json"
             };
-            string payload = $"[{events.Dequeue().ToString()}";
-
-            for (int i = 0; i < events.Count; i++)
-            {
-                payload += $", {events.Dequeue().ToString()}";
-                i--;
-            }
-
-            payload += "]";
 
             if (debugLogActions)
                 PrintWarning("Attempting to log all stored connection events...");
 
-            webrequest.Enqueue($"{BASE_URL}/events", payload, (code, response) =>
+            webrequest.Enqueue($"{BASE_URL}/events", JsonConvert.SerializeObject(events), (code, response) =>
             {
                 switch (code)
                 {
