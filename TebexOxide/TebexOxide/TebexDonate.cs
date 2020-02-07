@@ -23,7 +23,7 @@ using UnityEngine;
 namespace Oxide.Plugins
 {
 
-    [Info("Tebex Donate", "Tebex", "1.6.1")]
+    [Info("Tebex Donate", "Tebex", "1.6.3")]
     [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
@@ -64,13 +64,12 @@ namespace Oxide.Plugins
 
         }
 
+        [JsonObject]
         private class Event
         {
 
             [JsonProperty("username_id")]
             public string UsernameId { get; }
-            [JsonProperty("username")]
-            public string Username { get; }
             [JsonProperty("event_type")]
             public string EventType { get; }
             [JsonProperty("event_date")]
@@ -78,19 +77,15 @@ namespace Oxide.Plugins
             [JsonProperty("ip")]
             public string IpAddress { get; }
 
-            public Event(string usernameId, string username, string eventType, string eventDate, string ipAddress)
+            public Event(string usernameId, string eventType, string eventDate, string ipAddress)
             {
                 UsernameId = usernameId;
-                Username = username;
                 EventType = eventType;
                 EventDate = eventDate;
                 IpAddress = ipAddress;
             }
 
-            public override string ToString()
-            {
-                return $"{{\"username_id\": \"{UsernameId}\", \"username\": \"{ConvertToJson(Username)}\", \"event_type\": \"{EventType}\", \"event_date\": \"{EventDate}\", \"ip\": \"{IpAddress}\"}}";
-            }
+            public override string ToString() => $"{{\"username_id\": \"{UsernameId}\", \"event_type\": \"{EventType}\", \"event_date\": \"{EventDate}\", \"ip\": \"{IpAddress}\"}}";
 
         }
 
@@ -314,13 +309,17 @@ namespace Oxide.Plugins
                 foreach (KeyValuePair<int, Package> orderedPackage in orderedPackages)
                 {
                     Package package = orderedPackage.Value;
+                    string imageIcon = "";
 
                     if (package.Image)
-                        Instance.ImageLibrary?.Call<bool>("AddImage", package.ImageUrl, $"{package.Id}", 0uL);
+                        imageIcon = Instance.ImageLibrary?.Call<string>("GetImage", package.ImageUrl, 0uL);
+
+                    if (string.IsNullOrEmpty(imageIcon))
+                        imageIcon = Instance.ImageLibrary?.Call<string>("GetImage", Instance.buyUIDefaultPackageImageUrl, 0uL);
 
                     builder = builder.AddPanel(builder.Panel, HexToRust(Instance.buyUIBackgroundColour, Instance.buyUIBackgroundColourTransparency), $"{packageAnchorMinX} {packageAnchorMinY}", $"{packageAnchorMaxX} {packageAnchorMaxY}", true)
                         .AddLabel(builder.Panel, package.Name, 12, $"{packageAnchorMinX} {packageAnchorMaxY - 0.05}", $"{packageAnchorMaxX} {packageAnchorMaxY}", TextAnchor.MiddleCenter)
-                        .AddImage(builder.Panel, package.Image ? package.ImageUrl : Instance.buyUIDefaultPackageImageUrl, $"{packageAnchorMinX + 0.005} {packageAnchorMinY + 0.01}", $"{packageAnchorMaxX - ((packageAnchorMaxX - packageAnchorMinX) / 2) - 0.005} {packageAnchorMaxY - 0.055}")
+                        .AddImage(builder.Panel, imageIcon, $"{packageAnchorMinX + 0.005} {packageAnchorMinY + 0.01}", $"{packageAnchorMaxX - ((packageAnchorMaxX - packageAnchorMinX) / 2) - 0.005} {packageAnchorMaxY - 0.055}")
                         .AddLabel(builder.Panel, $"{storeCurrencySymbol}{package.Price}", 12, $"{packageAnchorMaxX - ((packageAnchorMaxX - packageAnchorMinX) / 2) + 0.005} {packageAnchorMaxY - (packageAnchorYDecrement / 2)}", $"{packageAnchorMaxX - 0.005} {packageAnchorMaxY - 0.055}", TextAnchor.MiddleCenter)
                         .AddButton(builder.Panel, HexToRust(Instance.buyUIButtonColour, Instance.buyUIButtonColourTransparency), "Buy", 16, $"{packageAnchorMaxX - ((packageAnchorMaxX - packageAnchorMinX) / 2) + 0.005} {packageAnchorMinY + 0.01}", $"{packageAnchorMaxX - 0.005} {packageAnchorMaxY - (packageAnchorYDecrement / 2) - 0.01}", $"TD_Buy {package.Id}", TextAnchor.MiddleCenter);
 
@@ -483,6 +482,10 @@ namespace Oxide.Plugins
             validated = false;
 
             StartValidationTimer();
+
+            #if RUST
+            ImageLibrary?.Call<bool>("AddImage", buyUIDefaultPackageImageUrl, buyUIDefaultPackageImageUrl, 0uL);
+            #endif
         }
 
         private void Unload()
@@ -610,7 +613,7 @@ namespace Oxide.Plugins
         }
         #endif
 
-        private void OnUserConnected(IPlayer player) => events.Enqueue(new Event(player.Id, player.Name, "server.join", FormattedUtcDate(), player.Address));
+        private void OnUserConnected(IPlayer player) => events.Enqueue(new Event(player.Id, "server.join", FormattedUtcDate(), player.Address));
 
         private void OnUserDisconnected(IPlayer player)
         {
@@ -621,7 +624,7 @@ namespace Oxide.Plugins
                 RustUIManager.CloseUI(basePlayer);
             #endif
 
-            events.Enqueue(new Event(player.Id, player.Name, "server.leave", FormattedUtcDate(), player.Address));
+            events.Enqueue(new Event(player.Id, "server.leave", FormattedUtcDate(), player.Address));
         }
 
         #endregion
@@ -888,6 +891,12 @@ namespace Oxide.Plugins
                                             {
                                                 bool image = jSubCategoryPackage["image"].Type != JTokenType.Boolean;
                                                 Package package = new Package(jSubCategoryPackage["id"].ToObject<int>(), jSubCategoryPackage["name"].ToString(), jSubCategoryPackage["price"].ToString(), image, image ? null : jSubCategoryPackage["image"].ToString());
+
+                                                #if RUST
+                                                if (package.Image)
+                                                    ImageLibrary?.Call("AddImage", package.ImageUrl, package.ImageUrl, 0uL);
+                                                #endif
+
                                                 int packageOrder = jSubCategoryPackage["order"].ToObject<int>();
 
                                                 while (subCategory.Packages.ContainsKey(packageOrder))
@@ -1058,20 +1067,19 @@ namespace Oxide.Plugins
             {
                 ["Content-Type"] = "application/json"
             };
-            string payload = $"[{events.Dequeue().ToString()}";
+            Event nextEvent = events.Dequeue();
+            StringBuilder payload = new StringBuilder("[").Append(nextEvent.ToString());
 
-            for (int i = 0; i < events.Count; i++)
+            while (events.Count > 0)
             {
-                payload += $", {events.Dequeue().ToString()}";
-                i--;
+                nextEvent = events.Dequeue();
+                payload.Append(",").Append(nextEvent.ToString());
             }
-
-            payload += "]";
 
             if (debugLogActions)
                 PrintWarning("Attempting to log all stored connection events...");
 
-            webrequest.Enqueue($"{BASE_URL}/events", payload, (code, response) =>
+            webrequest.Enqueue($"{BASE_URL}/events", payload.Append("]").ToString(), (code, response) =>
             {
                 switch (code)
                 {
@@ -1289,63 +1297,6 @@ namespace Oxide.Plugins
         #endregion
 
         #region Utilities
-
-        private static string ConvertToJson(string s)
-        {
-            if (s == null || s.Length == 0)
-                return "";
-
-            char c = '\0';
-            int i;
-            int len = s.Length;
-            StringBuilder sb = new StringBuilder(len + 4);
-            string t;
-
-            for (i = 0; i < len; i += 1)
-            {
-                c = s[i];
-
-                switch (c)
-                {
-                    case '\\':
-                    case '"':
-                        sb.Append('\\');
-                        sb.Append(c);
-                        break;
-                    case '/':
-                        sb.Append('\\');
-                        sb.Append(c);
-                        break;
-                    case '\b':
-                        sb.Append("\\b");
-                        break;
-                    case '\t':
-                        sb.Append("\\t");
-                        break;
-                    case '\n':
-                        sb.Append("\\n");
-                        break;
-                    case '\f':
-                        sb.Append("\\f");
-                        break;
-                    case '\r':
-                        sb.Append("\\r");
-                        break;
-                    default:
-                        if (c < ' ')
-                        {
-                            t = "000" + String.Format("X", c);
-                            sb.Append("\\u" + t.Substring(t.Length - 4));
-                        }
-                        else
-                            sb.Append(c);
-
-                        break;
-                }
-            }
-
-            return sb.ToString();
-        }
 
         private Dictionary<string, string> AddToHeaders(string secretKey) => AddToHeaders(null, secretKey);
 
