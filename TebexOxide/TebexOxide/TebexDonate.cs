@@ -23,7 +23,7 @@ using UnityEngine;
 namespace Oxide.Plugins
 {
 
-    [Info("Tebex Donate", "Tebex", "1.6.3")]
+    [Info("Tebex Donate", "Tebex", "1.6.4")]
     [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
@@ -409,6 +409,7 @@ namespace Oxide.Plugins
         private bool debugLogActions;
         private bool debugLogResponseErrors;
         private bool debugLogStackTraces;
+        private float eventLogInterval;
         private string secretKey;
 
         #endregion
@@ -448,6 +449,7 @@ namespace Oxide.Plugins
             Config["Debug", "Log Actions"] = debugLogActions = GetConfig("Debug", "Log Actions", true);
             Config["Debug", "Log Stack Traces"] = debugLogStackTraces = GetConfig("Debug", "Log Stack Traces", true);
             Config["Debug", "Log Response Errors"] = debugLogResponseErrors = GetConfig("Debug", "Log Response Errors", true);
+            Config["Event Log Interval"] = eventLogInterval = GetConfig("Event Log Interval", 60f);
             Config["Secret key of your shop (do not tell it anyone)"] = secretKey = GetConfig("Secret key of your shop (do not tell it anyone)", "");
 
             SaveConfig();
@@ -1025,7 +1027,7 @@ namespace Oxide.Plugins
                         logEvents = jObject["account"]["log_events"].ToObject<bool>();
 
                         if (logEvents)
-                            StartEventTimer(60f);
+                            StartEventTimer(eventLogInterval);
                         else if (eventTimer != null && !eventTimer.Destroyed)
                             eventTimer.Destroy();
 
@@ -1058,7 +1060,7 @@ namespace Oxide.Plugins
                 eventTimer.Destroy();
 
             Queue<Event> events = new Queue<Event>(this.events);
-            eventTimer = timer.In(60f, () => LogEvents());
+            eventTimer = timer.In(eventLogInterval, () => LogEvents());
 
             if (events.Count < 1)
                 return;
