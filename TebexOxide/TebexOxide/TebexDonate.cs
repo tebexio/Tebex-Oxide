@@ -409,6 +409,7 @@ namespace Oxide.Plugins
         private bool debugLogActions;
         private bool debugLogResponseErrors;
         private bool debugLogStackTraces;
+        private float commandCheckInterval;
         private float eventLogInterval;
         private string secretKey;
 
@@ -449,7 +450,12 @@ namespace Oxide.Plugins
             Config["Debug", "Log Actions"] = debugLogActions = GetConfig("Debug", "Log Actions", true);
             Config["Debug", "Log Stack Traces"] = debugLogStackTraces = GetConfig("Debug", "Log Stack Traces", true);
             Config["Debug", "Log Response Errors"] = debugLogResponseErrors = GetConfig("Debug", "Log Response Errors", true);
+            Config["Command Check Interval"] = commandCheckInterval = GetConfig("Command Check Interval", 225f);
             Config["Event Log Interval"] = eventLogInterval = GetConfig("Event Log Interval", 60f);
+
+            if (eventLogInterval < 60f)
+                eventLogInterval = 60f;
+
             Config["Secret key of your shop (do not tell it anyone)"] = secretKey = GetConfig("Secret key of your shop (do not tell it anyone)", "");
 
             SaveConfig();
@@ -717,6 +723,9 @@ namespace Oxide.Plugins
                     checkTimer = timer.In(secondsUntilNextCheck, () => CheckCommandQueue(false));
                     return;
                 }
+
+                if (commandCheckInterval > secondsUntilNextCheck)
+                    secondsUntilNextCheck = commandCheckInterval;
 
                 checkTimer = timer.In(secondsUntilNextCheck, () => CheckCommandQueue(false));
                 PrintError($"An unhandled error occurred whilst checking the command queue (response code: {code}).");
