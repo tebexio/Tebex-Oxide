@@ -23,7 +23,7 @@ using UnityEngine;
 namespace Oxide.Plugins
 {
 
-    [Info("Tebex Donate", "Tebex", "1.6.3")]
+    [Info("Tebex Donate", "Tebex", "1.7.0")]
     [Description("Official Plugin for the Tebex Server Monetization Platform.")]
     public class TebexDonate : CovalencePlugin
     {
@@ -614,18 +614,6 @@ namespace Oxide.Plugins
         #endif
 
         private void OnUserConnected(IPlayer player) => events.Enqueue(new Event(player.Id, "server.join", FormattedUtcDate(), player.Address));
-
-        private void OnUserDisconnected(IPlayer player)
-        {
-            #if RUST
-            var basePlayer = player.Object as BasePlayer;
-
-            if (basePlayer != null)
-                RustUIManager.CloseUI(basePlayer);
-            #endif
-
-            events.Enqueue(new Event(player.Id, "server.leave", FormattedUtcDate(), player.Address));
-        }
 
         #endregion
 
