@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Tebex Donate", "Tebex", "1.6.4")]
+    [Info("Tebex Donate", "Tebex", "1.7.0")]
     [Description("Official support for the Tebex server monetization platform")]
     public class TebexDonate : CovalencePlugin
     {
