@@ -1,50 +1,38 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
-#if RUST
 using System.Globalization;
-#endif
+using System.Text;
 
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-#if RUST
 using Oxide.Core;
-#endif
 using Oxide.Core.Libraries;
 using Oxide.Core.Libraries.Covalence;
 using Oxide.Core.Plugins;
-#if RUST
-using Oxide.Game.Rust.Cui;
 
 using UnityEngine;
-#endif
 
 namespace Oxide.Plugins
 {
-
-    [Info("Tebex Donate", "Tebex", "1.6.3")]
-    [Description("Official Plugin for the Tebex Server Monetization Platform.")]
+    [Info("Tebex Donate", "Tebex", "1.6.4")]
+    [Description("Official support for the Tebex server monetization platform")]
     public class TebexDonate : CovalencePlugin
     {
-
         #region Classes and Structures
 
         private class Category : SubCategory
         {
-
             public SortedDictionary<int, SubCategory> SubCategories { get; }
 
             public Category(int id, string name, int parentId, SortedDictionary<int, Package> packages, SortedDictionary<int, SubCategory> subCategories) : base(id, name, parentId, packages)
             {
                 SubCategories = subCategories;
             }
-
         }
 
         private struct Command
         {
-
             public int Id { get; }
             public bool Online { get; }
             public string PlayerId { get; }
@@ -61,13 +49,11 @@ namespace Oxide.Plugins
             }
 
             public string ReplaceVariables() => CommandString.Replace("{id}", PlayerId).Replace("{username}", PlayerName);
-
         }
 
         [JsonObject]
         private class Event
         {
-
             [JsonProperty("username_id")]
             public string UsernameId { get; }
             [JsonProperty("event_type")]
@@ -86,12 +72,10 @@ namespace Oxide.Plugins
             }
 
             public override string ToString() => $"{{\"username_id\": \"{UsernameId}\", \"event_type\": \"{EventType}\", \"event_date\": \"{EventDate}\", \"ip\": \"{IpAddress}\"}}";
-
         }
 
         private class Package
         {
-
             public int Id { get; }
             public string Name { get; }
             public string Price { get; }
@@ -106,12 +90,10 @@ namespace Oxide.Plugins
                 Image = image;
                 ImageUrl = imageUrl;
             }
-
         }
 
         private class SubCategory
         {
-
             public int Id { get; }
             public string Name { get; }
             public int ParentId { get; }
@@ -124,15 +106,13 @@ namespace Oxide.Plugins
                 ParentId = parentId;
                 Packages = packages;
             }
-
         }
 
-        #if RUST
+#if RUST
         private class RustUIBuilder
         {
-
             public string Panel { get; }
-            private CuiElementContainer container;
+            private Oxide.Game.Rust.Cui.CuiElementContainer container;
 
             public RustUIBuilder(string panel, string colour, string anchorMin, string anchorMax)
             {
@@ -142,36 +122,36 @@ namespace Oxide.Plugins
 
             public RustUIBuilder AddPanel(string panel, string colour, string anchorMin, string anchorMax, bool cursor)
             {
-                container.Add(new CuiPanel()
+                container.Add(new Oxide.Game.Rust.Cui.CuiPanel()
                 {
                     Image = { Color = colour },
                     RectTransform = { AnchorMin = anchorMin, AnchorMax = anchorMax },
                     CursorEnabled = cursor
-                }, panel, CuiHelper.GetGuid());
+                }, panel, Oxide.Game.Rust.Cui.CuiHelper.GetGuid());
                 return this;
             }
 
             public RustUIBuilder AddButton(string panel, string colour, string text, int size, string anchorMin, string anchorMax, string command, TextAnchor align)
             {
-                container.Add(new CuiButton()
+                container.Add(new Oxide.Game.Rust.Cui.CuiButton()
                 {
                     Button = { Color = colour, Command = command },
                     RectTransform = { AnchorMin = anchorMin, AnchorMax = anchorMax },
                     Text = { Text = text, FontSize = size, Align = align }
-                }, panel, CuiHelper.GetGuid());
+                }, panel, Oxide.Game.Rust.Cui.CuiHelper.GetGuid());
                 return this;
             }
 
             public RustUIBuilder AddImage(string panel, string url, string anchorMin, string anchorMax)
             {
-                container.Add(new CuiElement()
+                container.Add(new Oxide.Game.Rust.Cui.CuiElement()
                 {
-                    Name = CuiHelper.GetGuid(),
+                    Name = Oxide.Game.Rust.Cui.CuiHelper.GetGuid(),
                     Parent = panel,
                     Components =
                     {
-                        new CuiRawImageComponent() { Url = url },
-                        new CuiRectTransformComponent() { AnchorMin = anchorMin, AnchorMax = anchorMax }
+                        new Oxide.Game.Rust.Cui.CuiRawImageComponent() { Url = url },
+                        new Oxide.Game.Rust.Cui.CuiRectTransformComponent() { AnchorMin = anchorMin, AnchorMax = anchorMax }
                     }
                 });
                 return this;
@@ -179,38 +159,36 @@ namespace Oxide.Plugins
 
             public RustUIBuilder AddLabel(string panel, string text, int size, string anchorMin, string anchorMax, TextAnchor align)
             {
-                container.Add(new CuiLabel()
+                container.Add(new Oxide.Game.Rust.Cui.CuiLabel()
                 {
                     Text = { FontSize = size, Align = align, Text = text },
                     RectTransform = { AnchorMin = anchorMin, AnchorMax = anchorMax }
-                }, panel, CuiHelper.GetGuid());
+                }, panel, Oxide.Game.Rust.Cui.CuiHelper.GetGuid());
                 return this;
             }
 
-            public CuiElementContainer GetContainer() => container;
+            public Oxide.Game.Rust.Cui.CuiElementContainer GetContainer() => container;
 
-            private CuiElementContainer CreateElementContainer(string panel, string colour, string anchorMin, string anchorMax)
+            private Oxide.Game.Rust.Cui.CuiElementContainer CreateElementContainer(string panel, string colour, string anchorMin, string anchorMax)
             {
-                return new CuiElementContainer()
+                return new Oxide.Game.Rust.Cui.CuiElementContainer()
                 {
                     {
-                        new CuiPanel()
+                        new Oxide.Game.Rust.Cui.CuiPanel()
                         {
                             Image = { Color = colour },
                             RectTransform = { AnchorMin = anchorMin, AnchorMax = anchorMax },
                             CursorEnabled = true
                         },
-                        new CuiElement().Parent = "Overlay", panel
+                        new Oxide.Game.Rust.Cui.CuiElement().Parent = "Overlay", panel
                     }
                 };
             }
-
         }
 
         private class RustUIManager
         {
-
-            private static Dictionary<string, CuiElementContainer> availableUIs = new Dictionary<string, CuiElementContainer>();
+            private static Dictionary<string, Oxide.Game.Rust.Cui.CuiElementContainer> availableUIs = new Dictionary<string, Oxide.Game.Rust.Cui.CuiElementContainer>();
             private static Dictionary<ulong, string> openUIs = new Dictionary<ulong, string>();
 
             public static void ClearUIs()
@@ -228,7 +206,7 @@ namespace Oxide.Plugins
 
                 if (openUIs.TryGetValue(player.userID, out element))
                 {
-                    CuiHelper.DestroyUi(player, element);
+                    Oxide.Game.Rust.Cui.CuiHelper.DestroyUi(player, element);
                     openUIs.Remove(player.userID);
                 }
             }
@@ -282,7 +260,7 @@ namespace Oxide.Plugins
 
             public static void OpenUI(BasePlayer player, string element)
             {
-                CuiElementContainer container;
+                Oxide.Game.Rust.Cui.CuiElementContainer container;
 
                 if (!availableUIs.TryGetValue(element, out container))
                     return;
@@ -290,10 +268,10 @@ namespace Oxide.Plugins
                 string openElement;
 
                 if (openUIs.TryGetValue(player.userID, out openElement))
-                    CuiHelper.DestroyUi(player, openElement);
+                    Oxide.Game.Rust.Cui.CuiHelper.DestroyUi(player, openElement);
 
                 openUIs[player.userID] = element;
-                CuiHelper.AddUi(player, container.ToJson());
+                Oxide.Game.Rust.Cui.CuiHelper.AddUi(player, container.ToJson());
             }
 
             private static RustUIBuilder AddPackages(RustUIBuilder builder, string storeCurrencySymbol, SortedDictionary<int, Package> orderedPackages)
@@ -362,9 +340,8 @@ namespace Oxide.Plugins
 
                 return $"{(double)red / 255} {(double)green / 255} {(double)blue / 255} {alpha}";
             }
-
         }
-        #endif
+#endif
 
         #endregion
 
@@ -483,17 +460,17 @@ namespace Oxide.Plugins
 
             StartValidationTimer();
 
-            #if RUST
+#if RUST
             ImageLibrary?.Call<bool>("AddImage", buyUIDefaultPackageImageUrl, buyUIDefaultPackageImageUrl, 0uL);
-            #endif
+#endif
         }
 
         private void Unload()
         {
-            #if RUST
+#if RUST
             if (!Interface.Oxide.IsShuttingDown)
                 RustUIManager.ClearUIs();
-            #endif
+#endif
 
             if (checkTimer != null && !checkTimer.Destroyed)
                 checkTimer.Destroy();
@@ -522,11 +499,11 @@ namespace Oxide.Plugins
                 return;
             }
 
-            #if RUST
+#if RUST
             if (buyUIEnabled)
                 RustUIManager.OpenUI(player.Object as BasePlayer, "TD_Listings");
             else
-            #endif
+#endif
             player.Message(lang.GetMessage("BuyCommand", this, player.Id).Replace("{url}", storeUrl));
         }
 
@@ -562,7 +539,7 @@ namespace Oxide.Plugins
 
         #region UI Commands
 
-        #if RUST
+#if RUST
         [Command("TD_Buy")]
         private void TebexUI_Buy(IPlayer player, string command, string[] args)
         {
@@ -583,7 +560,7 @@ namespace Oxide.Plugins
 
         [Command("TD_Close")]
         private void TebexUI_Close(IPlayer player, string command, string[] args) => RustUIManager.CloseUI(player.Object as BasePlayer);
-        #endif
+#endif
 
         #endregion
 
@@ -591,7 +568,7 @@ namespace Oxide.Plugins
 
         #region Oxide Hooks
 
-        #if RUST
+#if RUST
         private object OnPlayerCommand(BasePlayer player, string command, string[] args)
         {
             string fullCommand = command.ToLower();
@@ -611,20 +588,19 @@ namespace Oxide.Plugins
 
             return null;
         }
-        #endif
+#endif
 
         private void OnUserConnected(IPlayer player) => events.Enqueue(new Event(player.Id, "server.join", FormattedUtcDate(), player.Address));
 
         private void OnUserDisconnected(IPlayer player)
         {
-            #if RUST
+#if RUST
             var basePlayer = player.Object as BasePlayer;
 
             if (basePlayer != null)
                 RustUIManager.CloseUI(basePlayer);
-            #endif
-
-            events.Enqueue(new Event(player.Id, "server.leave", FormattedUtcDate(), player.Address));
+#endif
+            
         }
 
         #endregion
@@ -746,7 +722,7 @@ namespace Oxide.Plugins
 
                         string message = lang.GetMessage("BuyCheckoutURL", this, player.Id).Replace("{url}", jObject["url"].ToString());
 
-                        #if RUST
+#if RUST
                         if ($"{buyUIMessageAvatarId}".IsSteamId())
                         {
                             var basePlayer = player.Object as BasePlayer;
@@ -756,9 +732,9 @@ namespace Oxide.Plugins
                             player.Message(message);
 
                         player.Command("TD_Close");
-                        #else
+#else
                         player.Message(message);
-                        #endif
+#endif
                     }
                     catch (Exception e)
                     {
@@ -892,10 +868,10 @@ namespace Oxide.Plugins
                                                 bool image = jSubCategoryPackage["image"].Type != JTokenType.Boolean;
                                                 Package package = new Package(jSubCategoryPackage["id"].ToObject<int>(), jSubCategoryPackage["name"].ToString(), jSubCategoryPackage["price"].ToString(), image, image ? null : jSubCategoryPackage["image"].ToString());
 
-                                                #if RUST
+#if RUST
                                                 if (package.Image)
                                                     ImageLibrary?.Call("AddImage", package.ImageUrl, package.ImageUrl, 0uL);
-                                                #endif
+#endif
 
                                                 int packageOrder = jSubCategoryPackage["order"].ToObject<int>();
 
@@ -941,10 +917,10 @@ namespace Oxide.Plugins
                         else if (debugLogActions)
                             PrintWarning("No categories or package listings were found on your store!");
 
-                        #if RUST
+#if RUST
                         RustUIManager.ClearUIs();
                         RustUIManager.GenerateUIs(storeName, storeCurrency, storeCurrencySymbol, listings);
-                        #endif
+#endif
 
                         buyCommandReady = true;
                     }
@@ -1318,7 +1294,5 @@ namespace Oxide.Plugins
         private T GetConfig<T>(string name, string name1, string name2, T defaultValue) => Config[name, name1, name2] == null ? defaultValue : (T)Convert.ChangeType(Config[name, name1, name2], typeof(T));
 
         #endregion
-
     }
-
 }

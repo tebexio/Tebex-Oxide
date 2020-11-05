@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\ILRepack.2.0.13\build\ILRepack.props" Condition="Exists('..\packages\ILRepack.2.0.13\build\ILRepack.props')" />
+  <Import Project="..\packages\ILRepack.2.0.18\build\ILRepack.props" Condition="Exists('..\packages\ILRepack.2.0.18\build\ILRepack.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -42,20 +42,24 @@
     <Reference Include="Facepunch.UnityEngine">
       <HintPath>..\..\..\..\Oxide\Facepunch.UnityEngine.dll</HintPath>
     </Reference>
-    <Reference Include="Oxide.Core">
-      <HintPath>..\..\..\..\Oxide\Oxide.Core.dll</HintPath>
+    <Reference Include="Oxide.Core, Version=2.0.3991.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\packages\Oxide.Core.2.0.3991\lib\net46\Oxide.Core.dll</HintPath>
     </Reference>
-    <Reference Include="Oxide.CSharp">
-      <HintPath>..\..\..\..\Oxide\Oxide.CSharp.dll</HintPath>
+    <Reference Include="Oxide.CSharp, Version=2.0.4041.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\packages\Oxide.CSharp.2.0.4041\lib\net46\Oxide.CSharp.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="Oxide.References">
-      <HintPath>..\..\..\..\Oxide\Oxide.References.dll</HintPath>
+    <Reference Include="Oxide.MySql, Version=2.0.3760.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\packages\Oxide.MySql.2.0.3760\lib\net46\Oxide.MySql.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="Oxide.Rust">
-      <HintPath>..\..\..\..\Oxide\Oxide.Rust.dll</HintPath>
+    <Reference Include="Oxide.References, Version=2.0.3779.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\packages\Oxide.References.2.0.3779\lib\net46\Oxide.References.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="Oxide.Unity">
-      <HintPath>..\..\..\..\Oxide\Oxide.Unity.dll</HintPath>
+    <Reference Include="Oxide.Unity, Version=2.0.3772.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\packages\Oxide.Unity.2.0.3772\lib\net35\Oxide.Unity.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="Rust.Data">
       <HintPath>..\..\..\..\Oxide\Rust.Data.dll</HintPath>
@@ -88,6 +92,12 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105.The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\ILRepack.2.0.18\build\ILRepack.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\ILRepack.2.0.18\build\ILRepack.props'))" />
+  </Target>
   <!--Import Project="..\packages\GitInfo.2.0.10\build\GitInfo.targets" Condition="Exists('..\packages\GitInfo.2.0.10\build\GitInfo.targets')" /-->
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
          Other similar extension points exist, see Microsoft.Common.targets.
