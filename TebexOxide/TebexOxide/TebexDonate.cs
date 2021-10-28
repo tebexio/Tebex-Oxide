@@ -1038,6 +1038,10 @@ namespace Oxide.Plugins
 
             if (events.Count < 1)
                 return;
+                         
+            while (events.Count > 900) {
+                events.Dequeue();
+            }
 
             Dictionary<string, string> headers = new Dictionary<string, string>()
             {
