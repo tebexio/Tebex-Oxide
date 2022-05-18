@@ -638,6 +638,7 @@ namespace Oxide.Plugins
                                 StartValidationTimer(60f);
                                 goto default;
                             default:
+                                checkTimer = timer.In(secondsUntilNextCheck, () => CheckCommandQueue(false));
                                 PrintWarning($"An error occurred whilst checking the command queue: {jObject["error_message"].ToString()}");
                                 return;
                         }
