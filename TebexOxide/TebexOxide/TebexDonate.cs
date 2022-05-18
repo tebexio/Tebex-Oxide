@@ -624,7 +624,7 @@ namespace Oxide.Plugins
             {
                 float secondsUntilNextCheck = 225f;
 
-                if (response != null)
+                if (response != null && response.subString(0,1) == '{')
                 {
                     try
                     {
@@ -701,7 +701,7 @@ namespace Oxide.Plugins
         {
             webrequest.Enqueue($"{BASE_URL}/checkout?username={player.Name}&package_id={packageId}", "", (code, response) =>
             {
-                if (response != null)
+                if (response != null && response.subString(0,1) == '{')
                 {
                     try
                     {
@@ -787,7 +787,7 @@ namespace Oxide.Plugins
                         StartValidationTimer(60f);
                         goto default;
                     default:
-                        if (response != null)
+                        if (response != null  && response.subString(0,1) == '{')
                         {
                             try
                             {
@@ -827,7 +827,7 @@ namespace Oxide.Plugins
 
             webrequest.Enqueue($"{BASE_URL}/listing", "", (code, response) =>
             {
-                if (response != null)
+                if (response != null && response.subString(0,1) == '{')
                 {
                     try
                     {
@@ -956,7 +956,7 @@ namespace Oxide.Plugins
 
             webrequest.Enqueue($"{BASE_URL}/information", "", (code, response) =>
             {
-                if (response != null)
+                if (response != null && response.subString(0,1) == '{')
                 {
                     try
                     {
@@ -1075,7 +1075,7 @@ namespace Oxide.Plugins
                         StartValidationTimer(60f);
                         goto default;
                     default:
-                        if (response != null)
+                        if (response != null && response.subString(0,1) == '{')
                         {
                             try
                             {
@@ -1138,7 +1138,7 @@ namespace Oxide.Plugins
         {
             webrequest.Enqueue($"{BASE_URL}/queue/offline-commands", "", (code, response) =>
             {
-                if (response != null)
+                if (response != null && response.subString(0,1) == '{')
                 {
                     try
                     {
@@ -1192,7 +1192,7 @@ namespace Oxide.Plugins
         {
             webrequest.Enqueue($"{BASE_URL}/queue/online-commands/{shopPlayerId}", "", (code, response) =>
             {
-                if (response != null)
+                if (response != null && response.subString(0,1) == '{')
                 {
                     try
                     {
